@@ -132,9 +132,6 @@ export const deletePropertyByIdService = async (id: string) => {
     throw error.response?.data || error;
   }
 };
-
-// APPROVE PROPERTY
-// APPROVE PROPERTY
 // APPROVE PROPERTY
 export const approveProperty = async (id: string | number) => {
   try {
@@ -152,6 +149,28 @@ export const rejectProperty = async (id: string | number) => {
   try {
     console.log(`[Service] Rejecting property ID: ${id}`);
     const { data } = await privetApi.post(`/properties/pending/${id}/reject`, {});
+    return data;
+  } catch (error: any) {
+    console.error("[Service Error] Reject failed:", error.response?.data || error.message);
+    throw error.response?.data || error;
+  }
+};
+
+export const activeProperty = async (id: string | number) => {
+  try {
+    console.log(`[Service] Activate property ID: ${id}`);
+    const { data } = await privetApi.post(`/properties/${id}/activate`, {});
+    return data;
+  } catch (error: any) {
+    console.error("[Service Error] Reject failed:", error.response?.data || error.message);
+    throw error.response?.data || error;
+  }
+};
+
+export const deactiveProperty = async (id: string | number) => {
+  try {
+    console.log(`[Service] Deactivate property ID: ${id}`);
+    const { data } = await privetApi.post(`/properties/${id}/deactivate`, {});
     return data;
   } catch (error: any) {
     console.error("[Service Error] Reject failed:", error.response?.data || error.message);

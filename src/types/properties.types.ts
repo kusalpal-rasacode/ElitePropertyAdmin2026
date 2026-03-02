@@ -1,5 +1,20 @@
+export interface PropertyFilters {
+  status?: 'active' | 'inactive' | 'all' | 'pending' | 'approved' | 'rejected';
+  search?: string;
+  min_price?: number;
+  max_price?: number;
+  bedrooms?: number;
+  page?: number;
+  limit?: number;
+}
+
 export interface PropertyData {
     id: string | number;
+    status:string;
+    created_by:number;
+    reviewed_by:number |string;
+    reviewed_at:string;
+    rejection_reason:string;
     listing_date: string;
     listing_price: number;
     asking_price: number;
@@ -50,8 +65,14 @@ export interface PropertyData {
     amenities?: string[];
     images: string[]; // Changed from (File | string)[] to string[] since API returns URLs
     created_at?: string; // Added from API response
-    updated_at?: string; // Added from API response
-    status?: string;
+    updated_at?: string;
+    is_active?: boolean;
+    creator?: {
+        id: number | string;
+        username: string;
+        first_name: string;
+        last_name: string;
+    };
 }
 
 export interface Pagination {
@@ -59,6 +80,12 @@ export interface Pagination {
     page: number;
     limit: number;
     totalPages: number;
+}
+export interface creator {
+    id:number| string;
+    username: string;
+    first_name: string;
+    last_name:string;
 }
 
 export interface PropertiesPayload {
@@ -116,6 +143,7 @@ export interface PropertiesPayload {
     limit?: number; // Added for pagination
     search?: string; // Added for search functionality
     type?: string; // Added for filtering by listing type
+    status?: 'active' | 'inactive' | 'all' | 'pending' | 'approved' | 'rejected'; // Added for status filtering
 }
 
 export interface PropertiesResponse {

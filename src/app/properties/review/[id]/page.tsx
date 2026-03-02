@@ -418,18 +418,26 @@ export default function ReviewPropertyPage() {
                             </div>
                         </div>
 
-                        {/* Agent Info - Placeholder as API lacks agent data currently */}
-                        <div className="flex items-center gap-3 pt-2">
-                            <img
-                                src="https://images.unsplash.com/photo-1560250097-0b93528c311a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80"
-                                alt="Elite Realty"
-                                className="w-10 h-10 rounded-full object-cover"
-                            />
-                            <div>
-                                <div className="font-bold text-sm" style={{ color: currentTheme.headingColor }}>Elite Realty</div>
-                                <div className="text-xs opacity-70" style={{ color: currentTheme.textColor }}>Listing Agent</div>
-                            </div>
-                        </div>
+                        {/* Creator Info */}
+{property.creator && (
+    <div className="flex items-center gap-3 pt-2">
+        <div
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+            style={{ backgroundColor: currentTheme.primary }}
+        >
+            {property.creator.first_name?.charAt(0).toUpperCase()}
+            {property.creator.last_name?.charAt(0).toUpperCase()}
+        </div>
+        <div className="min-w-0">
+            <div className="font-bold text-sm truncate" style={{ color: currentTheme.headingColor }}>
+                {property.creator.first_name} {property.creator.last_name}
+            </div>
+            <div className="text-xs opacity-70 truncate" style={{ color: currentTheme.textColor }}>
+                {property.creator.username}
+            </div>
+        </div>
+    </div>
+)}
                     </div>
 
                     {/* Quick Stats / Metadata */}

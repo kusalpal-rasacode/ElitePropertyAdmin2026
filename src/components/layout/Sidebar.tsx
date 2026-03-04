@@ -2,191 +2,507 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "@/providers/ThemeProvider";
+import { useAuth } from "@/providers/AuthProvider";
 import {
-    MdDashboard,
-    MdSecurity,
-    MdAdminPanelSettings,
-    MdSettings,
-    MdChevronRight,
-    MdChevronLeft,
-    MdLogout,
-    MdClose,
-    MdBusiness,
-    MdPeople,
-    MdCampaign
+  MdDashboard,
+  MdSecurity,
+  MdAdminPanelSettings,
+  MdSettings,
+  MdChevronRight,
+  MdChevronLeft,
+  MdLogout,
+  MdClose,
+  MdBusiness,
+  MdPeople,
+  MdCampaign,
+  MdApartment,
+  MdKey,
 } from "react-icons/md";
+import { ConfirmModal } from "../common/ConfirmModal";
+import { isSuperAdmin, isEnterpriseAdmin } from "@/utils/authUtils";
+import { getMyPermissions } from "@/services/rbac.service";
+import { PermissionsMap, ModuleKey } from "@/types/rbac.type";
 
 interface SidebarProps {
-    collapsed: boolean;
-    setCollapsed: (v: boolean) => void;
-    mobileOpen: boolean;
-    setMobileOpen: (v: boolean) => void;
+  collapsed: boolean;
+  setCollapsed: (v: boolean) => void;
+  mobileOpen: boolean;
+  setMobileOpen: (v: boolean) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ collapsed, setCollapsed, mobileOpen, setMobileOpen }) => {
-    const pathname = usePathname();
-    const { currentTheme } = useTheme();
+interface NavItem {
+  name: string;
+  icon: React.ReactNode;
+  path: string;
+  permission?: ModuleKey;
+  superAdminOnly?: boolean;
+  alwaysShow?: boolean;
+}
 
-    useEffect(() => {
-        setMobileOpen(false);
-    }, [pathname, setMobileOpen]);
+const NAV_ITEMS: NavItem[] = [
+  { name: "Dashboard", icon: <MdDashboard />, path: "/dashboard", alwaysShow: true },
+  { name: "Organizations", icon: <MdBusiness />, path: "/organizations", superAdminOnly: true },
+  { name: "Properties", icon: <MdApartment />, path: "/properties", permission: "properties" },
+  { name: "Rentals", icon: <MdApartment />, path: "/rent", permission: "properties" },
+  { name: "Users & Agents", icon: <MdPeople />, path: "/users", permission: "user_management" },
+  { name: "Campaigns", icon: <MdCampaign />, path: "/campaigns", permission: "campaign" },
+  { name: "Access Roles", icon: <MdKey />, path: "/roles", superAdminOnly: true },
+  { name: "Permissions", icon: <MdSecurity />, path: "/permissions", superAdminOnly: true },
+  { name: "Settings", icon: <MdSettings />, path: "/settings", alwaysShow: true },
+];
 
-    const isActiveLink = (path: string) => pathname === path;
+const MANAGEMENT_PATHS = ["/organizations", "/properties", "/rent", "/users", "/campaigns"];
+const SYSTEM_PATHS = ["/roles", "/permissions", "/settings"];
 
-    // 🔹 Theme-Aware Nav Link
-    const NavLink = ({
-        name,
-        icon,
-        path,
-        isSub = false
-    }: { name: string; icon: React.ReactNode; path: string; isSub?: boolean }) => {
-        const active = isActiveLink(path);
+// ─── Hydration-safe NavLink ───────────────────────────────────────────────────
+const NavLink = ({
+  name,
+  icon,
+  path,
+  collapsed,
+  mobileOpen,
+  currentTheme,
+}: {
+  name: string;
+  icon: React.ReactNode;
+  path: string;
+  collapsed: boolean;
+  mobileOpen: boolean;
+  currentTheme: any;
+}) => {
+  const pathname = usePathname();
+  // Defer active computation to client only → prevents hydration mismatch
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-        return (
-            <Link
-                href={path}
-                className={`
-          relative flex items-center gap-3 px-3.5 py-2.5 mx-3 mb-1 rounded-[10px] transition-all duration-200 group
-          ${active
-                        ? "shadow-md translate-x-1"
-                        : "opacity-70 hover:opacity-100 hover:bg-white/10"
-                    }
-          ${collapsed && !mobileOpen ? "justify-center px-0" : ""}
-        `}
-                style={{
-                    backgroundColor: active ? currentTheme.primary : 'transparent',
-                    color: active ? '#ffffff' : currentTheme.sidebarText,
-                }}
-            >
-                {/* Icon */}
-                <span className={`
-            relative z-10 transition-transform duration-200
-            ${active ? "text-white" : "group-hover:scale-105"}
-        `}>
-                    {icon}
-                </span>
+  const active = mounted && pathname === path;
 
-                {/* Text */}
-                {(!collapsed || mobileOpen) && (
-                    <span className={`relative z-10 text-[13px] font-medium tracking-wide ${active ? "opacity-100 font-bold" : "opacity-90"}`}>
-                        {name}
-                    </span>
-                )}
-            </Link>
-        );
-    };
+  return (
+    <Link
+      href={path}
+      className={`
+        flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
+        transition-all duration-200 group relative
+        ${active
+          ? "text-white shadow-md"
+          : "hover:bg-white/10"
+        }
+      `}
+      style={{
+        backgroundColor: active ? currentTheme.primary : undefined,
+        color: active ? "#fff" : currentTheme.sidebarText,
+      }}
+    >
+      <span className="text-xl flex-shrink-0">{icon}</span>
+      {(!collapsed || mobileOpen) && (
+        <span className="truncate">{name}</span>
+      )}
+      {/* Tooltip when collapsed */}
+      {collapsed && !mobileOpen && (
+        <span
+          className="
+            absolute left-full ml-3 px-2 py-1 rounded-md text-xs font-medium
+            opacity-0 group-hover:opacity-100 pointer-events-none
+            transition-opacity duration-150 whitespace-nowrap z-50 shadow-lg
+          "
+          style={{
+            backgroundColor: currentTheme.sidebarBg,
+            color: currentTheme.sidebarText,
+            border: `1px solid ${currentTheme.sidebarText}22`,
+          }}
+        >
+          {name}
+        </span>
+      )}
+    </Link>
+  );
+};
 
-    const SectionLabel = ({ label }: { label: string }) => (
-        (!collapsed || mobileOpen) ? (
-            <div className="px-5 mt-6 mb-2 text-[10px] font-bold uppercase tracking-wider opacity-50" style={{ color: currentTheme.sidebarText }}>
-                {label}
-            </div>
+// ─── Section label ────────────────────────────────────────────────────────────
+const SectionLabel = ({
+  label,
+  collapsed,
+  mobileOpen,
+  currentTheme,
+}: {
+  label: string;
+  collapsed: boolean;
+  mobileOpen: boolean;
+  currentTheme: any;
+}) =>
+  !collapsed || mobileOpen ? (
+    <p
+      className="text-[10px] font-semibold uppercase tracking-widest px-3 mb-1 mt-4"
+      style={{ color: `${currentTheme.sidebarText}66` }}
+    >
+      {label}
+    </p>
+  ) : (
+    <div
+      className="mx-auto my-3 h-px w-6 rounded"
+      style={{ backgroundColor: `${currentTheme.sidebarText}33` }}
+    />
+  );
+
+// ─── User footer (fully client-only to avoid hydration mismatch) ──────────────
+const UserFooter = ({
+  collapsed,
+  mobileOpen,
+  currentTheme,
+  user,
+  onLogout,
+}: {
+  collapsed: boolean;
+  mobileOpen: boolean;
+  currentTheme: any;
+  user: any;
+  onLogout: () => void;
+}) => {
+  const [mounted, setMounted] = useState(false);
+  const [imageFailed, setImageFailed] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const displayUser = mounted ? user : null;
+  const rawProfileImage =
+    displayUser?.profile_image ||
+    displayUser?.profileImage ||
+    displayUser?.avatar ||
+    "";
+  const profileImageSrc =
+    typeof rawProfileImage === "string" && rawProfileImage.startsWith("/")
+      ? `http://localhost:4000${rawProfileImage}`
+      : rawProfileImage;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [profileImageSrc]);
+
+  const getInitials = () => {
+    if (!displayUser) return "A";
+    const first = displayUser.first_name?.[0] ?? "";
+    const last = displayUser.last_name?.[0] ?? "";
+    const fallback = displayUser.username?.[0] ?? "A";
+    return (first + last || fallback).toUpperCase();
+  };
+
+  const formatRole = (roles?: any[]) => {
+    if (!mounted || !roles || roles.length === 0) return "";
+    const r = roles[0];
+    const name = typeof r === "string" ? r : r?.Name ?? r?.name ?? r?.role ?? "";
+    return name
+      .split("_")
+      .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  };
+
+  return (
+    <div
+      className="flex items-center gap-3 p-3 rounded-xl mt-auto"
+      style={{ backgroundColor: `${currentTheme.sidebarText}0d` }}
+      suppressHydrationWarning
+    >
+      {/* Avatar */}
+      <div
+        className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-md overflow-hidden"
+        style={{
+          backgroundColor: currentTheme.primary,
+          color: "#fff",
+        }}
+        suppressHydrationWarning
+      >
+        {profileImageSrc && !imageFailed ? (
+          <img
+            src={profileImageSrc}
+            alt=""
+            className="w-9 h-9 rounded-lg object-cover"
+            onError={() => setImageFailed(true)}
+          />
         ) : (
-            <div className="h-4"></div>
-        )
-    );
+          getInitials()
+        )}
+      </div>
 
-    return (
+      {(!collapsed || mobileOpen) && (
         <>
-            <div
-                className={`fixed inset-0 z-[80] bg-black/50 backdrop-blur-sm md:hidden transition-all duration-300 ${mobileOpen ? "opacity-100 visible" : "opacity-0 invisible"}`}
-                onClick={() => setMobileOpen(false)}
-            />
-
-            <aside
-                className={`
-            fixed md:sticky top-0 left-0 h-screen z-[90] transition-colors duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]
-            border-r border-white/10 shadow-[4px_0_24px_rgba(0,0,0,0.2)] flex flex-col
-            ${mobileOpen ? "translate-x-0 w-[260px]" : "-translate-x-full md:translate-x-0"}
-            ${collapsed ? "md:w-[80px]" : "md:w-[260px]"}
-        `}
-                style={{ backgroundColor: currentTheme.sidebarBg }}
+          <div className="flex-1 min-w-0" suppressHydrationWarning>
+            <p
+              className="text-sm font-semibold truncate leading-tight"
+              style={{ color: currentTheme.sidebarText }}
+              suppressHydrationWarning
             >
-                {/* Logo */}
-                <div className="h-20 flex items-center justify-center relative border-b border-white/10 shrink-0">
-                    <div className={`flex items-center gap-3 transition-all duration-300 ${collapsed && !mobileOpen ? "scale-90" : ""}`}>
-                        <div
-                            className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xl font-bold shadow-lg"
-                            style={{ backgroundColor: currentTheme.primary }}
-                        >
-                            B
-                        </div>
+              {mounted ? displayUser?.first_name : ""}
+            </p>
+            <p
+              className="text-xs truncate leading-tight mt-0.5"
+              style={{ color: `${currentTheme.sidebarText}88` }}
+              suppressHydrationWarning
+            >
+              {mounted ? formatRole(displayUser?.roles) : ""}
+            </p>
+          </div>
 
-                        {(!collapsed || mobileOpen) && (
-                            <div className="flex flex-col">
-                                <h1 className="text-xl font-bold tracking-tight leading-none" style={{ color: currentTheme.sidebarText }}>Boltz</h1>
-                                <span className="text-[10px] font-bold uppercase tracking-widest mt-1 opacity-60" style={{ color: currentTheme.sidebarText }}>Admin Portal</span>
-                            </div>
-                        )}
-                    </div>
-
-                    <button
-                        onClick={() => setMobileOpen(false)}
-                        className="md:hidden absolute top-6 right-4 hover:opacity-80"
-                        style={{ color: currentTheme.sidebarText }}
-                    >
-                        <MdClose size={22} />
-                    </button>
-                </div>
-
-                {/* Nav */}
-                <nav className="flex-1 overflow-y-auto px-3 py-6 space-y-1 custom-scrollbar">
-
-                    <NavLink name="Dashboard" icon={<MdDashboard size={20} />} path="/dashboard" />
-
-                    <SectionLabel label="Management" />
-                    <NavLink name="Properties" icon={<MdBusiness size={20} />} path="/properties" />
-                    <NavLink name="Users & Agents" icon={<MdPeople size={20} />} path="/users" />
-                    <NavLink name="Campaigns" icon={<MdCampaign size={20} />} path="/campaigns" />
-
-                    <SectionLabel label="System" />
-                    <NavLink name="Access Roles" icon={<MdAdminPanelSettings size={20} />} path="/roles" />
-                    <NavLink name="Permissions" icon={<MdSecurity size={20} />} path="/permissions" />
-                    <NavLink name="Settings" icon={<MdSettings size={20} />} path="/settings" />
-                </nav>
-
-                {/* Footer User */}
-                <div className="p-4 border-t border-white/10 shrink-0 bg-black/10">
-                    <div className={`
-                  flex items-center gap-3 p-2.5 rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 transition-colors cursor-pointer group
-                  ${collapsed && !mobileOpen ? "justify-center border-0 bg-transparent p-0" : ""}
-               `}>
-                        <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center font-bold text-sm shrink-0 border-2 border-transparent transition-colors shadow-sm" style={{ color: currentTheme.sidebarText }}>
-                            JD
-                        </div>
-
-                        {(!collapsed || mobileOpen) && (
-                            <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-bold truncate !text-white" style={{ color: '#FFFFFF' }}>John Doe</h4>
-                                <p className="text-[10px] font-medium truncate opacity-70 !text-white" style={{ color: '#FFFFFF' }}>Super Admin</p>
-                            </div>
-                        )}
-
-                        {(!collapsed || mobileOpen) && (
-                            <button className="text-white/50 hover:text-rose-500 transition-colors p-1 rounded-md hover:bg-white/10">
-                                <MdLogout size={18} />
-                            </button>
-                        )}
-                    </div>
-                </div>
-
-                {/* Toggle */}
-                <button
-                    onClick={() => setCollapsed(!collapsed)}
-                    className="hidden md:flex absolute -right-3 top-24 w-6 h-6 border rounded-full items-center justify-center shadow-lg hover:scale-110 transition-all z-50"
-                    style={{
-                        backgroundColor: currentTheme.sidebarBg,
-                        borderColor: currentTheme.sidebarText,
-                        color: currentTheme.sidebarText
-                    }}
-                >
-                    {collapsed ? <MdChevronRight size={14} /> : <MdChevronLeft size={14} />}
-                </button>
-            </aside>
+          <button
+            onClick={onLogout}
+            className="text-white/40 hover:text-rose-400 transition-colors p-1.5 rounded-lg hover:bg-white/10 flex-shrink-0"
+            title="Logout"
+          >
+            <MdLogout className="text-lg" />
+          </button>
         </>
-    );
+      )}
+    </div>
+  );
+};
+
+// ─── Main Sidebar ─────────────────────────────────────────────────────────────
+const Sidebar: React.FC<SidebarProps> = ({
+  collapsed,
+  setCollapsed,
+  mobileOpen,
+  setMobileOpen,
+}) => {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { currentTheme } = useTheme();
+  const { user, logout } = useAuth();
+
+  const [mounted, setMounted] = useState(false);
+  const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
+  const [myPermissions, setMyPermissions] = useState<PermissionsMap | null>(null);
+
+  useEffect(() => { setMounted(true); }, []);
+
+  // Fetch permissions for enterprise_role users
+  useEffect(() => {
+    if (mounted && user && isEnterpriseAdmin(user)) {
+      getMyPermissions()
+        .then((res) => {
+          setMyPermissions(res.permissions ?? null);
+        })
+        .catch(console.error);
+    }
+  }, [mounted, user]);
+
+  // Close mobile sidebar on route change
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname, setMobileOpen]);
+
+  const handleLogoutConfirm = () => {
+    logout();
+    router.push("/login");
+    setIsLogoutModalOpen(false);
+  };
+
+  const isVisible = (item: NavItem): boolean => {
+    // Always show non-auth items — safe to render on server too
+    if (item.alwaysShow) return true;
+    // Auth-dependent: defer until client is mounted to avoid hydration mismatch
+    if (!mounted) return false;
+    if (isSuperAdmin(user)) return true;
+    if (item.superAdminOnly) return false;
+    if (item.permission) {
+      return myPermissions?.[item.permission]?.view === true;
+    }
+    return false;
+  };
+
+  const visibleManagement = NAV_ITEMS.filter(
+    (i) => MANAGEMENT_PATHS.includes(i.path) && isVisible(i),
+  );
+  const visibleSystem = NAV_ITEMS.filter(
+    (i) => SYSTEM_PATHS.includes(i.path) && isVisible(i),
+  );
+  const dashboardItem = NAV_ITEMS.find((i) => i.path === "/dashboard")!;
+
+  // ─── Shared sidebar content ────────────────────────────────────────────────
+  const sidebarContent = (
+    <div className="flex flex-col h-full">
+
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-4 py-5 relative">
+        <div
+          className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-lg flex-shrink-0 shadow-lg"
+          style={{
+            background: `linear-gradient(135deg, ${currentTheme.primary}, ${currentTheme.primary}cc)`,
+          }}
+        >
+          R
+        </div>
+        {(!collapsed || mobileOpen) && (
+          <div>
+            <p
+              className="font-bold text-sm leading-tight"
+              style={{ color: currentTheme.sidebarText }}
+            >
+              Rasacode
+            </p>
+            <p
+              className="text-[10px] leading-tight"
+              style={{ color: `${currentTheme.sidebarText}66` }}
+            >
+              Admin Portal
+            </p>
+          </div>
+        )}
+        {/* Mobile close button */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          className="md:hidden absolute top-4 right-4 p-1 rounded-lg hover:bg-white/10 transition-colors"
+          style={{ color: currentTheme.sidebarText }}
+        >
+          <MdClose className="text-xl" />
+        </button>
+      </div>
+
+      {/* Divider */}
+      <div
+        className="mx-4 mb-2 h-px"
+        style={{ backgroundColor: `${currentTheme.sidebarText}1a` }}
+      />
+
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5 scrollbar-thin">
+
+        {/* Dashboard — always first */}
+        <NavLink
+          {...dashboardItem}
+          collapsed={collapsed}
+          mobileOpen={mobileOpen}
+          currentTheme={currentTheme}
+        />
+
+        {/* Management section */}
+        {visibleManagement.length > 0 && (
+          <>
+            <SectionLabel
+              label="Management"
+              collapsed={collapsed}
+              mobileOpen={mobileOpen}
+              currentTheme={currentTheme}
+            />
+            {visibleManagement.map((item) => (
+              <NavLink
+                key={item.path}
+                {...item}
+                collapsed={collapsed}
+                mobileOpen={mobileOpen}
+                currentTheme={currentTheme}
+              />
+            ))}
+          </>
+        )}
+
+        {/* System section */}
+        {visibleSystem.length > 0 && (
+          <>
+            <SectionLabel
+              label="System"
+              collapsed={collapsed}
+              mobileOpen={mobileOpen}
+              currentTheme={currentTheme}
+            />
+            {visibleSystem.map((item) => (
+              <NavLink
+                key={item.path}
+                {...item}
+                collapsed={collapsed}
+                mobileOpen={mobileOpen}
+                currentTheme={currentTheme}
+              />
+            ))}
+          </>
+        )}
+      </nav>
+
+      {/* Divider */}
+      <div
+        className="mx-4 mt-2 mb-3 h-px"
+        style={{ backgroundColor: `${currentTheme.sidebarText}1a` }}
+      />
+
+      {/* User footer */}
+      <div className="px-3 pb-4">
+        <UserFooter
+          collapsed={collapsed}
+          mobileOpen={mobileOpen}
+          currentTheme={currentTheme}
+          user={user}
+          onLogout={() => setIsLogoutModalOpen(true)}
+        />
+      </div>
+    </div>
+  );
+
+  return (
+    <>
+      {/* ── Mobile overlay ── */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* ── Mobile drawer ── */}
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-50 w-64 md:hidden
+          transform transition-transform duration-300 ease-in-out
+          ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
+        `}
+        style={{ backgroundColor: currentTheme.sidebarBg }}
+      >
+        {sidebarContent}
+      </aside>
+
+      {/* ── Desktop sidebar ── */}
+      <aside
+        className={`
+          hidden md:flex flex-col relative flex-shrink-0
+          transition-all duration-300 ease-in-out h-screen sticky top-0
+          ${collapsed ? "w-[70px]" : "w-64"}
+        `}
+        style={{ backgroundColor: currentTheme.sidebarBg }}
+      >
+        {sidebarContent}
+
+        {/* Collapse toggle */}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="
+            absolute -right-3 top-24 w-6 h-6 border rounded-full
+            flex items-center justify-center shadow-lg
+            hover:scale-110 transition-all z-50
+          "
+          style={{
+            backgroundColor: currentTheme.sidebarBg,
+            borderColor: `${currentTheme.sidebarText}44`,
+            color: currentTheme.sidebarText,
+          }}
+        >
+          {collapsed ? (
+            <MdChevronRight className="text-sm" />
+          ) : (
+            <MdChevronLeft className="text-sm" />
+          )}
+        </button>
+      </aside>
+
+      {/* ── Logout confirm modal ── */}
+      <ConfirmModal
+        isOpen={isLogoutModalOpen}
+        onClose={() => setIsLogoutModalOpen(false)}
+        onConfirm={handleLogoutConfirm}
+        title="Confirm Logout"
+        message="Are you sure you want to log out of the admin portal?"
+        confirmLabel="Logout"
+        cancelLabel="Cancel"
+      />
+    </>
+  );
 };
 
 export default Sidebar;

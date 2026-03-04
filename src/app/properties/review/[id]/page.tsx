@@ -151,13 +151,15 @@ export default function ReviewPropertyPage() {
                 </Link>
                 {isPendingProperty && (
                     <div className="flex gap-3">
-                        <button
-                            onClick={handleRejectClick}
-                            className="px-5 py-2.5 rounded-xl font-bold text-sm bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors flex items-center gap-2"
-                        >
-                            <MdClose size={18} />
-                            Reject Property
-                        </button>
+                        {String(property?.status).toLowerCase() !== "rejected" && (
+                            <button
+                                onClick={handleRejectClick}
+                                className="px-5 py-2.5 rounded-xl font-bold text-sm bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors flex items-center gap-2"
+                            >
+                                <MdClose size={18} />
+                                Reject Property
+                            </button>
+                        )}
                         <button
                             onClick={handleApproveClick}
                             className="px-5 py-2.5 rounded-xl font-bold text-sm text-white shadow-lg hover:brightness-110 transition-all flex items-center gap-2"

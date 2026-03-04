@@ -10,7 +10,7 @@ import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { showSuccessToast, showErrorToast } from "@/utils/toast";
 import { useModulePermission } from "@/hooks/useModulePermission";
 
-export default function PropertiesPage() {
+function PropertiesContent() {
     const { currentTheme } = useTheme();
     const router = useRouter();
     const pathname = usePathname();
@@ -70,7 +70,7 @@ export default function PropertiesPage() {
         params.set("page", String(pagination.page));
         params.set("limit", String(pagination.limit));
         router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // ─── Sync all filter state → URL params ───────────────────────────────────
@@ -286,7 +286,7 @@ export default function PropertiesPage() {
     useEffect(() => {
         if (!mounted) return;
         syncToUrl();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab, pendingStatus, pagination.page, searchQuery, filterStatus, filterListingType, filterPropertyType, minPrice, maxPrice, beds, baths]);
 
     // ─── Delete handlers ──────────────────────────────────────────────────────
@@ -604,19 +604,18 @@ export default function PropertiesPage() {
                                     <div className="absolute top-4 left-4 px-3 py-1 backdrop-blur-md rounded-lg text-xs font-bold shadow-sm" style={{ backgroundColor: 'rgba(255, 255, 255, 0.9)', color: '#0f172a' }}>
                                         {property.transaction_type}
                                     </div>
-                                    <div className={`absolute top-4 right-4 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm ${
-                                        activeTab === 'pending'
+                                    <div className={`absolute top-4 right-4 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm ${activeTab === 'pending'
                                             ? property.status === 'approved' ? 'bg-emerald-500'
-                                            : property.status === 'rejected' ? 'bg-rose-500'
-                                            : 'bg-orange-500'
+                                                : property.status === 'rejected' ? 'bg-rose-500'
+                                                    : 'bg-orange-500'
                                             : property.is_active
                                                 ? 'bg-emerald-500'
                                                 : 'bg-slate-500'
-                                    }`}>
+                                        }`}>
                                         {activeTab === 'pending'
                                             ? property.status === 'approved' ? 'Approved'
-                                            : property.status === 'rejected' ? 'Rejected'
-                                            : 'Pending'
+                                                : property.status === 'rejected' ? 'Rejected'
+                                                    : 'Pending'
                                             : property.is_active
                                                 ? 'Active'
                                                 : 'Deactive'}
@@ -730,27 +729,26 @@ export default function PropertiesPage() {
                                                                 </button>
                                                             )
                                                         )}
+
+                                                        {activeTab !== 'all' && canEditProperties && String(property.status).toLowerCase() !== 'rejected' && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); onRejectClick(property.id); }}
+                                                                className="px-4 py-2.5 text-left text-sm font-semibold text-amber-600 hover:bg-amber-50 transition-colors w-full"
+                                                            >
+                                                                Reject Property
+                                                            </button>
+                                                        )}
                                                         {(canDeleteProperties || (canEditProperties && activeTab !== 'all')) && (
                                                             <div className="h-px my-1" style={{ backgroundColor: currentTheme.borderColor }}></div>
                                                         )}
-                                                        {activeTab === 'all' ? (
-                                                            canDeleteProperties && (
-                                                                <button
-                                                                    onClick={() => initiateDelete(property.id)}
-                                                                    className="px-4 py-2.5 text-left text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors"
-                                                                >
-                                                                    Delete Property
-                                                                </button>
-                                                            )
-                                                        ) : (
-                                                            canEditProperties && (
-                                                                <button
-                                                                    onClick={(e) => { e.stopPropagation(); onRejectClick(property.id); }}
-                                                                    className="px-4 py-2.5 text-left text-sm font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
-                                                                >
-                                                                    Reject Property
-                                                                </button>
-                                                            )
+
+                                                        {canDeleteProperties && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); initiateDelete(property.id); }}
+                                                                className="px-4 py-2.5 text-left text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors"
+                                                            >
+                                                                Delete Property
+                                                            </button>
                                                         )}
                                                     </div>
                                                 </div>
@@ -824,34 +822,42 @@ export default function PropertiesPage() {
                 onConfirm={handleConfirmAction}
                 title={
                     pendingAction === 'approve' ? "Approve Property" :
-                    pendingAction === 'reject' ? "Reject Property" :
-                    pendingAction === 'activate' ? "Activate Property" :
-                    "Deactivate Property"
+                        pendingAction === 'reject' ? "Reject Property" :
+                            pendingAction === 'activate' ? "Activate Property" :
+                                "Deactivate Property"
                 }
                 message={
                     pendingAction === 'approve'
                         ? "Are you sure you want to approve this property? It will become active immediately."
                         : pendingAction === 'reject'
-                        ? "Are you sure you want to reject this property? This action cannot be undone."
-                        : pendingAction === 'activate'
-                        ? "Are you sure you want to activate this property? It will be visible to users."
-                        : "Are you sure you want to deactivate this property? It will be hidden from users."
+                            ? "Are you sure you want to reject this property? This action cannot be undone."
+                            : pendingAction === 'activate'
+                                ? "Are you sure you want to activate this property? It will be visible to users."
+                                : "Are you sure you want to deactivate this property? It will be hidden from users."
                 }
                 confirmLabel={
                     pendingAction === 'approve' ? "Approve" :
-                    pendingAction === 'reject' ? "Reject" :
-                    pendingAction === 'activate' ? "Activate" :
-                    "Deactivate"
+                        pendingAction === 'reject' ? "Reject" :
+                            pendingAction === 'activate' ? "Activate" :
+                                "Deactivate"
                 }
                 isLoading={actionLoading}
                 confirmButtonColor={
                     pendingAction === 'activate' || pendingAction === 'approve'
                         ? currentTheme.primary
                         : pendingAction === 'deactivate'
-                        ? '#f59e0b'
-                        : '#ef4444'
+                            ? '#f59e0b'
+                            : '#ef4444'
                 }
             />
         </div>
+    );
+}
+
+export default function PropertiesPage() {
+    return (
+        <React.Suspense fallback={<div className="flex justify-center py-20"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div></div>}>
+            <PropertiesContent />
+        </React.Suspense>
     );
 }

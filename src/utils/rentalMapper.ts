@@ -152,6 +152,7 @@ const arrayFromUnknown = (value: unknown): string[] => {
 export const normalizeRentalStatus = (status?: string) => {
   const value = (status || "").toLowerCase();
   if (value === "pending") return "Pending";
+  if (value === "rejected") return "Rejected";
   if (value === "inactive") return "Inactive";
   if (value === "expired") return "Expired";
   if (value === "cancelled") return "Cancelled";
@@ -175,6 +176,10 @@ export const mapRentalToPropertyData = (rental: Record<string, unknown>): Proper
   const id = typeof rawId === "string" || typeof rawId === "number" ? rawId : safeString(rawId);
   return {
     id,
+    created_by: safeNumber(rental?.created_by, 0),
+    reviewed_by: safeString(rental?.reviewed_by),
+    reviewed_at: safeString(rental?.reviewed_at),
+    rejection_reason: safeString(rental?.rejection_reason),
     listing_date: safeString(rental?.created_at, new Date().toISOString().split("T")[0]),
     listing_price: safeNumber(rental?.monthly_rent, 0),
     asking_price: safeNumber(rental?.monthly_rent, 0),

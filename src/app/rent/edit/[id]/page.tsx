@@ -4,7 +4,7 @@ import React from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import RentForm from "@/components/common/Rentform";
-import { getRentalByIdService, updateRentalService } from "@/services/rentals.service";
+import { getRentalByIdService, updatePendingRentalService } from "@/services/rentals.service";
 import { propertyToFormData, PropertyFormData } from "@/utils/propertyFormUtils";
 import { mapPropertyFormToRentalPayload, mapRentalToPropertyData } from "@/utils/rentalMapper";
 import { showErrorToast, showSuccessToast } from "@/utils/toast";
@@ -34,7 +34,7 @@ export default function EditRentPage() {
   const { mutate: updateRental, isPending: isUpdating } = useMutation({
     mutationFn: (formData: FormData) => {
       const rentalPayload = mapPropertyFormToRentalPayload(formData, true);
-      return updateRentalService(id, rentalPayload);
+      return updatePendingRentalService(id, rentalPayload);
     },
     onSuccess: (response) => {
       showSuccessToast(response?.message || "Rental updated successfully.");

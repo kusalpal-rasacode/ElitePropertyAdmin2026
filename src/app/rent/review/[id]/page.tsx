@@ -4,9 +4,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { MdOutlineBedroomParent, MdOutlineBathroom, MdSquareFoot, MdLocationOn, MdArrowBack, MdCheckCircle, MdCalendarToday, MdHouse, MdConstruction, MdAirlineSeatReclineNormal, MdPets, MdAttachMoney, MdSmokeFree, MdWater, MdPool, MdLocalParking, MdWifi, MdSecurity, MdFitnessCenter, MdElevator, MdBalcony, MdKitchen, MdAcUnit, MdLocalLaundryService, MdCheck, MdClose } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { PropertyData } from "@/types/properties.types";
-import { activateRentalService, cancelRentalService, getRentalByIdService } from "@/services/rentals.service";
+import { approveRentalService, rejectRentalService, getRentalByIdService, getPendingRentalByIdService } from "@/services/rentals.service";
 import { getRentalImageCandidates, mapRentalToPropertyData } from "@/utils/rentalMapper";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { showErrorToast, showSuccessToast } from "@/utils/toast";
@@ -31,6 +31,8 @@ export default function RentReviewPropertyPage() {
     const { currentTheme } = useTheme();
     const params = useParams(); // To get property ID from URL
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const source = searchParams.get("source");
 
     const [property, setProperty] = useState<PropertyData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -39,6 +41,7 @@ export default function RentReviewPropertyPage() {
     const [isActionModalOpen, setIsActionModalOpen] = useState(false);
     const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
+    const [isPendingProperty, setIsPendingProperty] = useState(false);
     const [creator, setCreator] = useState<CreatorInfo | null>(null);
     const [failedImageMap, setFailedImageMap] = useState<Record<string, boolean>>({});
     const fetchedRentalIdRef = useRef<string | null>(null);
@@ -53,10 +56,31 @@ export default function RentReviewPropertyPage() {
         const fetchProperty = async () => {
             setLoading(true);
             try {
-                const rental = await getRentalByIdService(rentalId);
+                let rental: Record<string, unknown> | null = null;
+                let pendingRental = false;
+
+                if (source === "pending") {
+                    try {
+                        rental = await getPendingRentalByIdService(rentalId);
+                        pendingRental = true;
+                    } catch {
+                        rental = await getRentalByIdService(rentalId);
+                        pendingRental = false;
+                    }
+                } else {
+                    try {
+                        rental = await getRentalByIdService(rentalId);
+                        pendingRental = false;
+                    } catch {
+                        rental = await getPendingRentalByIdService(rentalId);
+                        pendingRental = true;
+                    }
+                }
+
                 if (rental) {
                     const mapped = mapRentalToPropertyData(rental);
                     setProperty(mapped);
+                    setIsPendingProperty(pendingRental);
                     setFailedImageMap({});
                     if (mapped.images && mapped.images.length > 0) {
                         setSelectedImage(mapped.images[0]);
@@ -91,7 +115,7 @@ export default function RentReviewPropertyPage() {
         };
 
         fetchProperty();
-    }, [params.id]);
+    }, [params.id, source]);
 
     const handleApproveClick = () => {
         setPendingAction('approve');
@@ -108,10 +132,10 @@ export default function RentReviewPropertyPage() {
         setActionLoading(true);
         try {
             if (pendingAction === 'approve') {
-                await activateRentalService(property.id);
+                await approveRentalService(property.id);
                 showSuccessToast("Property Approved Successfully!");
             } else {
-                await cancelRentalService(property.id);
+                await rejectRentalService(property.id);
                 showSuccessToast("Property Rejected.");
             }
             router.push("/rent");
@@ -148,8 +172,6 @@ export default function RentReviewPropertyPage() {
     const displayImage = selectedImage || (property.images && property.images.length > 0
         ? property.images[0]
         : "");
-    const isPendingProperty = property.status === "Pending";
-
     const resolveImageSrc = (raw: string) => getRentalImageCandidates(raw)[0] || raw || "";
 
     const handleDetailImageError = (raw: string) => {
@@ -167,13 +189,15 @@ export default function RentReviewPropertyPage() {
                 </Link>
                 {isPendingProperty && (
                     <div className="flex gap-3">
-                        <button
-                            onClick={handleRejectClick}
-                            className="px-5 py-2.5 rounded-xl font-bold text-sm bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors flex items-center gap-2"
-                        >
-                            <MdClose size={18} />
-                            Reject Property
-                        </button>
+                        {String(property?.status).toLowerCase() !== "rejected" && (
+                            <button
+                                onClick={handleRejectClick}
+                                className="px-5 py-2.5 rounded-xl font-bold text-sm bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors flex items-center gap-2"
+                            >
+                                <MdClose size={18} />
+                                Reject Property
+                            </button>
+                        )}
                         <button
                             onClick={handleApproveClick}
                             className="px-5 py-2.5 rounded-xl font-bold text-sm text-white shadow-lg hover:brightness-110 transition-all flex items-center gap-2"

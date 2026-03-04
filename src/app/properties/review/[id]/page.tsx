@@ -88,7 +88,7 @@ export default function ReviewPropertyPage() {
     };
 
     // Confirm Action Handler
-    const handleConfirmAction = async () => {
+    const handleConfirmAction = async (reason?: string) => {
         if (!property || !pendingAction) return;
 
         setActionLoading(true);
@@ -98,7 +98,7 @@ export default function ReviewPropertyPage() {
                 showSuccessToast("Property Approved Successfully!");
                 router.push("/properties");
             } else if (pendingAction === 'reject') {
-                await rejectProperty(property.id);
+                await rejectProperty(property.id, reason);
                 showSuccessToast("Property Rejected.");
                 router.push("/properties");
             }
@@ -184,6 +184,9 @@ export default function ReviewPropertyPage() {
                 confirmLabel={pendingAction === 'approve' ? "Approve" : "Reject"}
                 isLoading={actionLoading}
                 confirmButtonColor={pendingAction === 'approve' ? currentTheme.primary : '#ef4444'}
+                showTextarea={pendingAction === 'reject'}
+                textareaLabel="Rejection Reason (Optional)"
+                textareaPlaceholder="Please provide a reason for rejecting this property..."
             />
 
 
@@ -230,6 +233,18 @@ export default function ReviewPropertyPage() {
 
                     {/* Property Description */}
                     <div className="space-y-6">
+
+                        {String(property.status).toLowerCase() === "rejected" && property.rejection_reason && (
+                            <div className="rounded-3xl border shadow-sm p-6 bg-rose-50 border-rose-200">
+                                <h2 className="text-xl font-bold mb-3 text-rose-700 flex items-center gap-2">
+                                    <MdClose size={24} />
+                                    Rejection Reason
+                                </h2>
+                                <p className="leading-relaxed whitespace-pre-line text-lg text-rose-800 font-medium">
+                                    {property.rejection_reason}
+                                </p>
+                            </div>
+                        )}
 
                         {/* Description - Theme Aware */}
                         <div className="rounded-3xl border shadow-sm transition-all hover:shadow-md overflow-hidden relative"
@@ -421,25 +436,25 @@ export default function ReviewPropertyPage() {
                         </div>
 
                         {/* Creator Info */}
-{property.creator && (
-    <div className="flex items-center gap-3 pt-2">
-        <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-            style={{ backgroundColor: currentTheme.primary }}
-        >
-            {property.creator.first_name?.charAt(0).toUpperCase()}
-            {property.creator.last_name?.charAt(0).toUpperCase()}
-        </div>
-        <div className="min-w-0">
-            <div className="font-bold text-sm truncate" style={{ color: currentTheme.headingColor }}>
-                {property.creator.first_name} {property.creator.last_name}
-            </div>
-            <div className="text-xs opacity-70 truncate" style={{ color: currentTheme.textColor }}>
-                {property.creator.username}
-            </div>
-        </div>
-    </div>
-)}
+                        {property.creator && (
+                            <div className="flex items-center gap-3 pt-2">
+                                <div
+                                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                                    style={{ backgroundColor: currentTheme.primary }}
+                                >
+                                    {property.creator.first_name?.charAt(0).toUpperCase()}
+                                    {property.creator.last_name?.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="font-bold text-sm truncate" style={{ color: currentTheme.headingColor }}>
+                                        {property.creator.first_name} {property.creator.last_name}
+                                    </div>
+                                    <div className="text-xs opacity-70 truncate" style={{ color: currentTheme.textColor }}>
+                                        {property.creator.username}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Quick Stats / Metadata */}

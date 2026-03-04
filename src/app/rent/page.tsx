@@ -344,7 +344,7 @@ function RentPropertiesContent() {
   };
 
   // Confirm Action Helper
-  const handleConfirmAction = async () => {
+  const handleConfirmAction = async (reason?: string) => {
     if (!pendingPropertyId || !pendingAction || !canEditProperties) return;
 
     setActionLoading(true);
@@ -353,7 +353,7 @@ function RentPropertiesContent() {
         await approveRentalService(pendingPropertyId);
         showSuccessToast("Property approved successfully!");
       } else {
-        await rejectRentalService(pendingPropertyId);
+        await rejectRentalService(pendingPropertyId, reason);
         showSuccessToast("Property rejected successfully!");
       }
       setRefreshKey((prev) => prev + 1); // Refresh UI
@@ -1227,6 +1227,13 @@ function RentPropertiesContent() {
                     </p>
                   </div>
 
+                  {String(property.status).toLowerCase() === "rejected" && property.rejection_reason && (
+                    <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-100">
+                      <p className="text-xs font-bold text-rose-600 mb-1 uppercase tracking-wider">Rejection Reason</p>
+                      <p className="text-sm text-rose-800 font-medium line-clamp-2" title={property.rejection_reason}>{property.rejection_reason}</p>
+                    </div>
+                  )}
+
                   <div
                     className="grid grid-cols-3 gap-2 py-3 border-t"
                     style={{ borderColor: currentTheme.borderColor }}
@@ -1552,6 +1559,9 @@ function RentPropertiesContent() {
         confirmLabel={pendingAction === "approve" ? "Approve" : "Reject"}
         confirmButtonColor={pendingAction === "approve" ? "#10b981" : "#ef4444"}
         isLoading={actionLoading}
+        showTextarea={pendingAction === "reject"}
+        textareaLabel="Rejection Reason (Optional)"
+        textareaPlaceholder="Please provide a reason for rejecting this property..."
       />
     </div>
   );

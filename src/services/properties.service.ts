@@ -145,10 +145,11 @@ export const approveProperty = async (id: string | number) => {
 };
 
 // REJECT PROPERTY
-export const rejectProperty = async (id: string | number) => {
+export const rejectProperty = async (id: string | number, rejection_reason?: string) => {
   try {
     console.log(`[Service] Rejecting property ID: ${id}`);
-    const { data } = await privetApi.post(`/properties/pending/${id}/reject`, {});
+    const payload = rejection_reason ? { rejection_reason } : {};
+    const { data } = await privetApi.post(`/properties/pending/${id}/reject`, payload);
     return data;
   } catch (error: any) {
     console.error("[Service Error] Reject failed:", error.response?.data || error.message);

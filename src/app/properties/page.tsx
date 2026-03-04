@@ -171,7 +171,7 @@ function PropertiesContent() {
         setActiveMenuId(null);
     };
 
-    const handleConfirmAction = async () => {
+    const handleConfirmAction = async (reason?: string) => {
         if (!pendingPropertyId || !pendingAction) return;
         setActionLoading(true);
         try {
@@ -180,7 +180,7 @@ function PropertiesContent() {
                 showSuccessToast("Property approved successfully!");
                 setRefreshKey(prev => prev + 1);
             } else if (pendingAction === 'reject') {
-                await rejectProperty(pendingPropertyId);
+                await rejectProperty(pendingPropertyId, reason);
                 showSuccessToast("Property rejected successfully!");
                 setRefreshKey(prev => prev + 1);
             } else if (pendingAction === 'activate') {
@@ -427,7 +427,6 @@ function PropertiesContent() {
                                     style={{ backgroundColor: currentTheme.background, borderColor: currentTheme.borderColor, color: currentTheme.headingColor }}
                                 >
                                     <option value="pending">Pending</option>
-                                    <option value="approved">Approved</option>
                                     <option value="rejected">Rejected</option>
                                 </select>
                             </div>
@@ -605,12 +604,12 @@ function PropertiesContent() {
                                         {property.transaction_type}
                                     </div>
                                     <div className={`absolute top-4 right-4 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm ${activeTab === 'pending'
-                                            ? property.status === 'approved' ? 'bg-emerald-500'
-                                                : property.status === 'rejected' ? 'bg-rose-500'
-                                                    : 'bg-orange-500'
-                                            : property.is_active
-                                                ? 'bg-emerald-500'
-                                                : 'bg-slate-500'
+                                        ? property.status === 'approved' ? 'bg-emerald-500'
+                                            : property.status === 'rejected' ? 'bg-rose-500'
+                                                : 'bg-orange-500'
+                                        : property.is_active
+                                            ? 'bg-emerald-500'
+                                            : 'bg-slate-500'
                                         }`}>
                                         {activeTab === 'pending'
                                             ? property.status === 'approved' ? 'Approved'
@@ -631,6 +630,14 @@ function PropertiesContent() {
                                         <MdLocationOn size={16} />
                                         <p>{property.city}, {property.state}</p>
                                     </div>
+
+                                    {String(property.status).toLowerCase() === "rejected" && property.rejection_reason && (
+                                        <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-100">
+                                            <p className="text-xs font-bold text-rose-600 mb-1 uppercase tracking-wider">Rejection Reason</p>
+                                            <p className="text-sm text-rose-800 font-medium line-clamp-2" title={property.rejection_reason}>{property.rejection_reason}</p>
+                                        </div>
+                                    )}
+
                                     <div className="grid grid-cols-3 gap-2 py-3 border-t" style={{ borderColor: currentTheme.borderColor }}>
                                         <div className="flex flex-col items-center">
                                             <div className="flex items-center gap-1.5 mb-1" style={{ color: currentTheme.textColor, opacity: 0.8 }}>
@@ -849,6 +856,9 @@ function PropertiesContent() {
                             ? '#f59e0b'
                             : '#ef4444'
                 }
+                showTextarea={pendingAction === 'reject'}
+                textareaLabel="Rejection Reason (Optional)"
+                textareaPlaceholder="Please provide a reason for rejecting this property..."
             />
         </div>
     );

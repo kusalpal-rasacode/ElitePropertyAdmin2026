@@ -127,7 +127,7 @@ export default function RentReviewPropertyPage() {
         setIsActionModalOpen(true);
     };
 
-    const handleConfirmAction = async () => {
+    const handleConfirmAction = async (reason?: string) => {
         if (!property || !pendingAction) return;
         setActionLoading(true);
         try {
@@ -135,7 +135,7 @@ export default function RentReviewPropertyPage() {
                 await approveRentalService(property.id);
                 showSuccessToast("Property Approved Successfully!");
             } else {
-                await rejectRentalService(property.id);
+                await rejectRentalService(property.id, reason);
                 showSuccessToast("Property Rejected.");
             }
             router.push("/rent");
@@ -220,6 +220,9 @@ export default function RentReviewPropertyPage() {
                 confirmLabel={pendingAction === 'approve' ? "Approve" : "Reject"}
                 isLoading={actionLoading}
                 confirmButtonColor={pendingAction === 'approve' ? currentTheme.primary : '#ef4444'}
+                showTextarea={pendingAction === 'reject'}
+                textareaLabel="Rejection Reason (Optional)"
+                textareaPlaceholder="Please provide a reason for rejecting this property..."
             />
 
             {/* Main Content Grid */}
@@ -283,6 +286,18 @@ export default function RentReviewPropertyPage() {
 
                     {/* Details Sections */}
                     <div className="space-y-6">
+
+                        {String(property.status).toLowerCase() === "rejected" && property.rejection_reason && (
+                            <div className="rounded-3xl border shadow-sm p-6 bg-rose-50 border-rose-200">
+                                <h2 className="text-xl font-bold mb-3 text-rose-700 flex items-center gap-2">
+                                    <MdClose size={24} />
+                                    Rejection Reason
+                                </h2>
+                                <p className="leading-relaxed whitespace-pre-line text-lg text-rose-800 font-medium">
+                                    {property.rejection_reason}
+                                </p>
+                            </div>
+                        )}
 
                         {/* Description */}
                         <div className="rounded-3xl border shadow-sm transition-all hover:shadow-md overflow-hidden relative"
@@ -522,6 +537,6 @@ export default function RentReviewPropertyPage() {
                 </div>
 
             </div>
-        </div>
+        </div >
     );
 }

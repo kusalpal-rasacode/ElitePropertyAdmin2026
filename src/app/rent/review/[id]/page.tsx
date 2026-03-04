@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { MdOutlineBedroomParent, MdOutlineBathroom, MdSquareFoot, MdLocationOn, MdArrowBack, MdCheckCircle, MdCalendarToday, MdHouse, MdConstruction, MdAirlineSeatReclineNormal, MdPets, MdAttachMoney, MdSmokeFree, MdWater, MdPool, MdLocalParking, MdWifi, MdSecurity, MdFitnessCenter, MdElevator, MdBalcony, MdKitchen, MdAcUnit, MdLocalLaundryService, MdCheck, MdClose } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { PropertyData } from "@/types/properties.types";
-import { activateRentalService, cancelRentalService, getRentalByIdService } from "@/services/rentals.service";
+import { approveRentalService, rejectRentalService, getRentalByIdService, getPendingRentalByIdService } from "@/services/rentals.service";
 import { getRentalImageCandidates, mapRentalToPropertyData } from "@/utils/rentalMapper";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { showErrorToast, showSuccessToast } from "@/utils/toast";
@@ -31,6 +31,8 @@ export default function RentReviewPropertyPage() {
     const { currentTheme } = useTheme();
     const params = useParams(); // To get property ID from URL
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const source = searchParams.get("source");
 
     const [property, setProperty] = useState<PropertyData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -39,17 +41,47 @@ export default function RentReviewPropertyPage() {
     const [isActionModalOpen, setIsActionModalOpen] = useState(false);
     const [pendingAction, setPendingAction] = useState<'approve' | 'reject' | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
+    const [isPendingProperty, setIsPendingProperty] = useState(false);
     const [creator, setCreator] = useState<CreatorInfo | null>(null);
+    const [failedImageMap, setFailedImageMap] = useState<Record<string, boolean>>({});
+    const fetchedRentalIdRef = useRef<string | null>(null);
 
     useEffect(() => {
+        const rawId = params.id;
+        const rentalId = Array.isArray(rawId) ? rawId[0] : rawId;
+        if (!rentalId) return;
+        if (fetchedRentalIdRef.current === rentalId) return;
+        fetchedRentalIdRef.current = rentalId;
+
         const fetchProperty = async () => {
-            if (!params.id) return;
             setLoading(true);
             try {
-                const rental = await getRentalByIdService(params.id as string);
+                let rental: Record<string, unknown> | null = null;
+                let pendingRental = false;
+
+                if (source === "pending") {
+                    try {
+                        rental = await getPendingRentalByIdService(rentalId);
+                        pendingRental = true;
+                    } catch {
+                        rental = await getRentalByIdService(rentalId);
+                        pendingRental = false;
+                    }
+                } else {
+                    try {
+                        rental = await getRentalByIdService(rentalId);
+                        pendingRental = false;
+                    } catch {
+                        rental = await getPendingRentalByIdService(rentalId);
+                        pendingRental = true;
+                    }
+                }
+
                 if (rental) {
                     const mapped = mapRentalToPropertyData(rental);
                     setProperty(mapped);
+                    setIsPendingProperty(pendingRental);
+                    setFailedImageMap({});
                     if (mapped.images && mapped.images.length > 0) {
                         setSelectedImage(mapped.images[0]);
                     }
@@ -76,13 +108,14 @@ export default function RentReviewPropertyPage() {
             } catch (err: unknown) {
                 console.error("Failed to fetch property:", err);
                 setError(getErrorMessage(err, "Failed to load property details"));
+                fetchedRentalIdRef.current = null;
             } finally {
                 setLoading(false);
             }
         };
 
         fetchProperty();
-    }, [params.id]);
+    }, [params.id, source]);
 
     const handleApproveClick = () => {
         setPendingAction('approve');
@@ -94,15 +127,15 @@ export default function RentReviewPropertyPage() {
         setIsActionModalOpen(true);
     };
 
-    const handleConfirmAction = async () => {
+    const handleConfirmAction = async (reason?: string) => {
         if (!property || !pendingAction) return;
         setActionLoading(true);
         try {
             if (pendingAction === 'approve') {
-                await activateRentalService(property.id);
+                await approveRentalService(property.id);
                 showSuccessToast("Property Approved Successfully!");
             } else {
-                await cancelRentalService(property.id);
+                await rejectRentalService(property.id, reason);
                 showSuccessToast("Property Rejected.");
             }
             router.push("/rent");
@@ -139,23 +172,10 @@ export default function RentReviewPropertyPage() {
     const displayImage = selectedImage || (property.images && property.images.length > 0
         ? property.images[0]
         : "");
-    const isPendingProperty = property.status === "Pending";
+    const resolveImageSrc = (raw: string) => getRentalImageCandidates(raw)[0] || raw || "";
 
-    const handleDetailImageError = (event: React.SyntheticEvent<HTMLImageElement, Event>, raw: string) => {
-        const img = event.currentTarget;
-        const candidates = getRentalImageCandidates(raw);
-        const current = img.src;
-        const next = candidates.find((url) => url !== current);
-        if (next) {
-            img.src = next;
-            return;
-        }
-        img.style.display = "none";
-        const wrapper = img.parentElement;
-        if (wrapper) {
-            const fallback = wrapper.querySelector(".rent-detail-fallback") as HTMLElement | null;
-            if (fallback) fallback.style.display = "flex";
-        }
+    const handleDetailImageError = (raw: string) => {
+        setFailedImageMap((prev) => ({ ...prev, [raw]: true }));
     };
 
     return (
@@ -169,21 +189,25 @@ export default function RentReviewPropertyPage() {
                 </Link>
                 {isPendingProperty && (
                     <div className="flex gap-3">
-                        <button
-                            onClick={handleRejectClick}
-                            className="px-5 py-2.5 rounded-xl font-bold text-sm bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors flex items-center gap-2"
-                        >
-                            <MdClose size={18} />
-                            Reject Property
-                        </button>
-                        <button
-                            onClick={handleApproveClick}
-                            className="px-5 py-2.5 rounded-xl font-bold text-sm text-white shadow-lg hover:brightness-110 transition-all flex items-center gap-2"
-                            style={{ backgroundColor: currentTheme.primary }}
-                        >
-                            <MdCheck size={18} />
-                            Approve Property
-                        </button>
+                        {String(property?.status).toLowerCase() !== "rejected" && (
+                            <button
+                                onClick={handleRejectClick}
+                                className="px-5 py-2.5 rounded-xl font-bold text-sm bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors flex items-center gap-2"
+                            >
+                                <MdClose size={18} />
+                                Reject Property
+                            </button>
+                        )}
+                        {String(property?.status).toLowerCase() !== "rejected" && (
+                            <button
+                                onClick={handleApproveClick}
+                                className="px-5 py-2.5 rounded-xl font-bold text-sm text-white shadow-lg hover:brightness-110 transition-all flex items-center gap-2"
+                                style={{ backgroundColor: currentTheme.primary }}
+                            >
+                                <MdCheck size={18} />
+                                Approve Property
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
@@ -198,6 +222,9 @@ export default function RentReviewPropertyPage() {
                 confirmLabel={pendingAction === 'approve' ? "Approve" : "Reject"}
                 isLoading={actionLoading}
                 confirmButtonColor={pendingAction === 'approve' ? currentTheme.primary : '#ef4444'}
+                showTextarea={pendingAction === 'reject'}
+                textareaLabel="Rejection Reason (Optional)"
+                textareaPlaceholder="Please provide a reason for rejecting this property..."
             />
 
             {/* Main Content Grid */}
@@ -208,21 +235,18 @@ export default function RentReviewPropertyPage() {
 
                     {/* Main Image */}
                     <div className="aspect-video w-full rounded-2xl relative shadow-sm overflow-hidden group bg-gray-100">
-                        {displayImage ? (
+                        {displayImage && !failedImageMap[displayImage] && resolveImageSrc(displayImage) ? (
                             <img
-                                src={getRentalImageCandidates(displayImage)[0] || displayImage}
+                                src={resolveImageSrc(displayImage)}
                                 alt={property.street_address}
                                 className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
-                                onError={(e) => handleDetailImageError(e, displayImage)}
+                                onError={() => handleDetailImageError(displayImage)}
                             />
                         ) : (
                             <div className="rent-detail-fallback w-full h-full flex items-center justify-center bg-slate-100">
                                 <span className="text-sm font-semibold text-slate-500">No image uploaded from API</span>
                             </div>
                         )}
-                        <div className="rent-detail-fallback w-full h-full items-center justify-center bg-slate-100 hidden">
-                            <span className="text-sm font-semibold text-slate-500">No image uploaded from API</span>
-                        </div>
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none"></div>
 
                         <div className="absolute bottom-4 left-4 flex gap-2 pointer-events-none">
@@ -245,12 +269,18 @@ export default function RentReviewPropertyPage() {
                                     className={`aspect-square rounded-xl overflow-hidden cursor-pointer transition-all border-2 ${selectedImage === img ? 'ring-2 ring-offset-1 ring-blue-500 border-transparent scale-95' : 'border-transparent hover:opacity-80'}`}
                                     style={{ borderColor: selectedImage === img ? currentTheme.primary : 'transparent' }}
                                 >
-                                    <img
-                                        src={getRentalImageCandidates(img)[0] || img}
-                                        alt={`Gallery ${idx}`}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => handleDetailImageError(e, img)}
-                                    />
+                                    {!failedImageMap[img] && resolveImageSrc(img) ? (
+                                        <img
+                                            src={resolveImageSrc(img)}
+                                            alt={`Gallery ${idx}`}
+                                            className="w-full h-full object-cover"
+                                            onError={() => handleDetailImageError(img)}
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-slate-100">
+                                            <span className="text-[10px] font-semibold text-slate-500">No image</span>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -258,6 +288,18 @@ export default function RentReviewPropertyPage() {
 
                     {/* Details Sections */}
                     <div className="space-y-6">
+
+                        {String(property.status).toLowerCase() === "rejected" && property.rejection_reason && (
+                            <div className="rounded-3xl border shadow-sm p-6 bg-rose-50 border-rose-200">
+                                <h2 className="text-xl font-bold mb-3 text-rose-700 flex items-center gap-2">
+                                    <MdClose size={24} />
+                                    Rejection Reason
+                                </h2>
+                                <p className="leading-relaxed whitespace-pre-line text-lg text-rose-800 font-medium">
+                                    {property.rejection_reason}
+                                </p>
+                            </div>
+                        )}
 
                         {/* Description */}
                         <div className="rounded-3xl border shadow-sm transition-all hover:shadow-md overflow-hidden relative"
@@ -497,6 +539,6 @@ export default function RentReviewPropertyPage() {
                 </div>
 
             </div>
-        </div>
+        </div >
     );
 }

@@ -5,13 +5,16 @@ import { useTheme } from "@/providers/ThemeProvider";
 interface ConfirmModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: () => void;
+    onConfirm: (inputValue?: string) => void;
     title?: string;
     message?: string;
     confirmLabel?: string;
     cancelLabel?: string;
     isLoading?: boolean;
     confirmButtonColor?: string;
+    showTextarea?: boolean;
+    textareaLabel?: string;
+    textareaPlaceholder?: string;
 }
 
 export const ConfirmModal: FC<ConfirmModalProps> = ({
@@ -24,9 +27,19 @@ export const ConfirmModal: FC<ConfirmModalProps> = ({
     cancelLabel = "Cancel",
     isLoading = false,
     confirmButtonColor = "#ef4444",
+    showTextarea = false,
+    textareaLabel = "Reason",
+    textareaPlaceholder = "Enter your reason here...",
 }) => {
     const { currentTheme } = useTheme();
     const modalRef = useRef<HTMLDivElement>(null);
+    const [inputValue, setInputValue] = React.useState("");
+
+    useEffect(() => {
+        if (isOpen) {
+            setInputValue("");
+        }
+    }, [isOpen]);
 
     useEffect(() => {
         const handleEscape = (e: KeyboardEvent) => {
@@ -80,6 +93,27 @@ export const ConfirmModal: FC<ConfirmModalProps> = ({
                     <p className="text-sm font-medium leading-relaxed" style={{ color: currentTheme.textColor }}>
                         {message}
                     </p>
+
+                    {showTextarea && (
+                        <div className="mt-4">
+                            <label className="block text-sm font-semibold mb-2" style={{ color: currentTheme.headingColor }}>
+                                {textareaLabel}
+                            </label>
+                            <textarea
+                                value={inputValue}
+                                onChange={(e) => setInputValue(e.target.value)}
+                                placeholder={textareaPlaceholder}
+                                rows={3}
+                                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 disabled:opacity-50 transition-all font-medium text-sm"
+                                style={{
+                                    backgroundColor: currentTheme.cardBg,
+                                    borderColor: currentTheme.borderColor,
+                                    color: currentTheme.textColor,
+                                }}
+                                disabled={isLoading}
+                            />
+                        </div>
+                    )}
                 </div>
 
                 {/* Footer */}
@@ -96,7 +130,7 @@ export const ConfirmModal: FC<ConfirmModalProps> = ({
                         {cancelLabel}
                     </button>
                     <button
-                        onClick={onConfirm}
+                        onClick={() => onConfirm(inputValue)}
                         disabled={isLoading}
                         className="px-4 py-2 text-sm font-bold text-white rounded-lg shadow-md hover:brightness-110 hover:shadow-lg transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                         style={{ backgroundColor: confirmButtonColor }} // Use prop color

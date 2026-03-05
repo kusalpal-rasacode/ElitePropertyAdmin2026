@@ -11,7 +11,6 @@ import { useModulePermission } from "@/hooks/useModulePermission";
 export default function CampaignsPage() {
     const { currentTheme } = useTheme();
     const router = useRouter();
-    const [mounted, setMounted] = React.useState(false);
     const [campaigns, setCampaigns] = React.useState<any[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
@@ -25,10 +24,6 @@ export default function CampaignsPage() {
     const canAddCampaign = can("add");
     const canEditCampaign = can("edit");
     const canDeleteCampaign = can("delete");
-
-    React.useEffect(() => {
-        setMounted(true);
-    }, []);
 
     // Fetch Campaigns
     const fetchCampaigns = async () => {
@@ -148,17 +143,7 @@ export default function CampaignsPage() {
         }
     };
 
-    if (!mounted || !permissionReady) {
-        return (
-            <div className="max-w-[1600px] mx-auto py-10">
-                <div className="rounded-xl border px-5 py-4 text-sm font-medium" style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
-                    Loading campaigns...
-                </div>
-            </div>
-        );
-    }
-
-    if (!loading && !canViewCampaign) {
+    if (!loading && permissionReady && !canViewCampaign) {
         return (
             <div className="max-w-[1600px] mx-auto py-10">
                 <div className="rounded-xl border px-5 py-4 text-sm font-medium" style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>

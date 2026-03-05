@@ -18,10 +18,6 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   return fallback;
 };
 
-
-
-
-
 export default function AddPropertyPage() {
   const router = useRouter();
   const queryClient = useQueryClient();

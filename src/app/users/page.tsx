@@ -373,7 +373,7 @@ export default function UsersPage() {
                     {/* Plan */}
                     <td className="px-6 py-4">
                       <span
-                        className={`px-2.5 py-1 rounded-md text-xs font-bold border ${getPlanBadgeClass(planType)}`}
+                        className={`inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-md text-xs font-bold border ${getPlanBadgeClass(planType)}`}
                       >
                         {user.subscription?.plan?.display_name ?? planRole}
                       </span>
@@ -402,7 +402,7 @@ export default function UsersPage() {
                     <td className="px-6 py-4">
                       {roleDisplay ? (
                         <span
-                          className="px-2.5 py-1 rounded-md text-xs font-bold border"
+                          className="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-md text-xs font-bold border"
                           style={{
                             backgroundColor: currentTheme.background,
                             borderColor: currentTheme.borderColor,

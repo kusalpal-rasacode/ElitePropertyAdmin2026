@@ -17,6 +17,7 @@ function UserTab({
         >
           Managing access for {users.length} users
         </div>
+        {/*
         <button
           onClick={handleAddUserInit}
           className="px-4 py-2 rounded-lg text-white font-bold text-xs uppercase tracking-wide shadow-lg hover:shadow-xl active:scale-95 transition-all flex items-center gap-2"
@@ -24,6 +25,7 @@ function UserTab({
         >
           <MdPersonAdd size={16} /> Add User
         </button>
+        */}
       </div>
 
       <div

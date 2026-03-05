@@ -232,6 +232,8 @@ function RentPropertiesContent() {
   const [pendingStatus, setPendingStatus] = useState<"pending" | "rejected">(
     (searchParams.get("pending_status") as "pending" | "rejected") || "pending",
   );
+  const isRejectedPendingList =
+    activeTab === "pending" && pendingStatus === "rejected";
   const isOrganizationUser = isEnterpriseAdmin(user) && !isSuperAdmin(user);
 
   useEffect(() => {
@@ -392,17 +394,43 @@ function RentPropertiesContent() {
               status: pendingStatus,
               ...(searchQuery ? { search: searchQuery } : {}),
             })
-            : await getRentals({
-              page: pagination.page,
-              limit: pagination.limit,
-              ...(filterStatus !== "All"
-                ? {
-                  status: filterStatus.toLowerCase() as
-                    | "active"
-                    | "inactive",
-                }
-                : {}),
-            });
+            : filterStatus === "All"
+              ? await Promise.all([
+                getRentals({
+                  page: pagination.page,
+                  limit: pagination.limit,
+                  status: "active",
+                }),
+                getRentals({
+                  page: pagination.page,
+                  limit: pagination.limit,
+                  status: "inactive",
+                }),
+              ]).then(([activeResponse, inactiveResponse]) => ({
+                data: [
+                  ...(activeResponse.data || []),
+                  ...(inactiveResponse.data || []),
+                ],
+                pagination: {
+                  total:
+                    (activeResponse.pagination?.total || 0) +
+                    (inactiveResponse.pagination?.total || 0),
+                  page: pagination.page,
+                  limit: pagination.limit,
+                  totalPages: Math.ceil(
+                    ((activeResponse.pagination?.total || 0) +
+                      (inactiveResponse.pagination?.total || 0)) /
+                    pagination.limit,
+                  ),
+                },
+              }))
+              : await getRentals({
+                page: pagination.page,
+                limit: pagination.limit,
+                status: filterStatus.toLowerCase() as
+                  | "active"
+                  | "inactive",
+              });
         if (!isCurrentRequest) return;
         const rawList = response.data || [];
         const mappedList = rawList.map((item) =>
@@ -1187,7 +1215,7 @@ function RentPropertiesContent() {
                     {property.listing_type || "Rent"}
                   </div>
                   <div
-                    className={`absolute top-4 right-4 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm ${property.status === "Pending" ? "bg-orange-500" : property.status === "Rejected" ? "bg-rose-500" : property.status === "Inactive" ? "bg-amber-500" : property.status === "Cancelled" ? "bg-rose-500" : "bg-emerald-500"}`}
+                    className={`absolute top-4 right-4 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm ${property.status === "Pending" ? "bg-orange-500" : property.status === "Rejected" ? "bg-rose-500" : property.status === "Inactive" ? "bg-slate-500" : property.status === "Cancelled" ? "bg-rose-500" : "bg-emerald-500"}`}
                   >
                     {property.status || "Active"}
                   </div>
@@ -1362,7 +1390,8 @@ function RentPropertiesContent() {
                               </button>
                             )}
                             {canEditProperties &&
-                              property.status === "Pending" && (
+                              property.status === "Pending" &&
+                              !isRejectedPendingList && (
                                 <button
                                   onClick={() =>
                                     router.push(`/rent/edit/${property.id}`)
@@ -1387,15 +1416,17 @@ function RentPropertiesContent() {
                                     : "Deactivate"}
                                 </button>
                               ) : (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onApproveClick(property.id);
-                                  }}
-                                  className="px-4 py-2.5 text-left text-sm font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2"
-                                >
-                                  Approve
-                                </button>
+                                !isRejectedPendingList && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onApproveClick(property.id);
+                                    }}
+                                    className="px-4 py-2.5 text-left text-sm font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors flex items-center gap-2"
+                                  >
+                                    Approve
+                                  </button>
+                                )
                               ))}
                             {activeTab !== "all" &&
                               canEditProperties &&
@@ -1574,3 +1605,4 @@ export default function RentPropertiesPage() {
     </React.Suspense>
   );
 }
+

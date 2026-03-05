@@ -47,6 +47,7 @@ function PropertiesContent() {
     const [activeTab, setActiveTab] = useState<'all' | 'pending'>(
         (searchParams.get("tab") as 'all' | 'pending') || 'all'
     );
+    const isRejectedPendingList = activeTab === 'pending' && pendingStatus === 'rejected';
     const [pagination, setPagination] = useState({
         page: Number(searchParams.get("page")) || 1,
         limit: Number(searchParams.get("limit")) || 9,
@@ -186,12 +187,11 @@ function PropertiesContent() {
             } else if (pendingAction === 'activate') {
                 await activeProperty(pendingPropertyId);
                 showSuccessToast("Property activated successfully!");
-                // Optimistically update is_active without full refetch
-                setProperties(prev => prev.map(p => p.id === pendingPropertyId ? { ...p, is_active: true } : p));
+                setRefreshKey(prev => prev + 1);
             } else if (pendingAction === 'deactivate') {
                 await deactiveProperty(pendingPropertyId);
                 showSuccessToast("Property deactivated successfully!");
-                setProperties(prev => prev.map(p => p.id === pendingPropertyId ? { ...p, is_active: false } : p));
+                setRefreshKey(prev => prev + 1);
             }
         } catch (error: any) {
             const errorMessage = error?.message || error?.error || `Failed to ${pendingAction} property.`;
@@ -226,7 +226,7 @@ function PropertiesContent() {
                 if (searchQuery) apiParams.search = searchQuery;
                 if (filterListingType !== "All") apiParams.type = filterListingType;
                 if (filterPropertyType !== "All") apiParams.property_type = filterPropertyType;
-                if (filterStatus !== "All") apiParams.status = filterStatus.toLowerCase();
+                apiParams.status = filterStatus === "All" ? "all" : filterStatus.toLowerCase();
                 if (minPrice) apiParams.min_price = Number(minPrice);
                 if (maxPrice) apiParams.max_price = Number(maxPrice);
                 if (beds) apiParams.bedrooms = Number(beds);
@@ -617,7 +617,7 @@ function PropertiesContent() {
                                                     : 'Pending'
                                             : property.is_active
                                                 ? 'Active'
-                                                : 'Deactive'}
+                                                : 'Inactive'}
                                     </div>
                                 </div>
 
@@ -703,7 +703,7 @@ function PropertiesContent() {
                                                                 </button>
                                                             </Link>
                                                         )}
-                                                        {canEditProperties && activeTab === 'pending' && (
+                                                        {canEditProperties && activeTab === 'pending' && pendingStatus !== 'rejected' && (
                                                             <Link href={`/properties/edit/${property.id}`} className="w-full">
                                                                 <button className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors" style={{ color: currentTheme.headingColor }}>
                                                                     Edit Property
@@ -728,12 +728,14 @@ function PropertiesContent() {
                                                                     </button>
                                                                 )
                                                             ) : (
+                                                                !isRejectedPendingList && (
                                                                 <button
                                                                     onClick={(e) => { e.stopPropagation(); onApproveClick(property.id); }}
                                                                     className="px-4 py-2.5 text-left text-sm font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors"
                                                                 >
                                                                     Approve
                                                                 </button>
+                                                                )
                                                             )
                                                         )}
 
@@ -871,3 +873,4 @@ export default function PropertiesPage() {
         </React.Suspense>
     );
 }
+

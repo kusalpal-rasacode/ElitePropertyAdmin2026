@@ -15,7 +15,7 @@ import { Organization } from "@/types/organization.types";
 import { getUsers } from "@/services/user.service";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   MdArrowBack,
   MdBusiness,
@@ -73,6 +73,7 @@ export default function OrganizationDetailsPage() {
   });
   const [updating, setUpdating] = useState(false);
   const [selectedRoleId, setSelectedRoleId] = useState<string>("");
+  const initialFetchDoneForIdRef = useRef<number | null>(null);
 
   const fetchData = async () => {
     if (!id || isNaN(id)) return;
@@ -135,6 +136,9 @@ export default function OrganizationDetailsPage() {
   };
 
   useEffect(() => {
+    if (!id || isNaN(id)) return;
+    if (initialFetchDoneForIdRef.current === id) return;
+    initialFetchDoneForIdRef.current = id;
     fetchData();
   }, [id]);
 

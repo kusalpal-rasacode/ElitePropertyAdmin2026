@@ -8,6 +8,19 @@ import {
     AddUserToOrganizationDto
 } from "../types/organization.types";
 
+const inFlightGetRequests = new Map<string, Promise<any>>();
+
+const dedupeGet = <T>(key: string, request: () => Promise<T>): Promise<T> => {
+    const existing = inFlightGetRequests.get(key);
+    if (existing) return existing as Promise<T>;
+
+    const pending = request().finally(() => {
+        inFlightGetRequests.delete(key);
+    });
+    inFlightGetRequests.set(key, pending);
+    return pending;
+};
+
 export const getOrganizations = async (params?: OrganizationParams): Promise<OrganizationResponse> => {
     try {
         const response = await privetApi.get<OrganizationResponse>("/organizations", { params });
@@ -19,7 +32,9 @@ export const getOrganizations = async (params?: OrganizationParams): Promise<Org
 
 export const getOrganizationById = async (id: number): Promise<Organization> => {
     try {
-        const response = await privetApi.get<Organization>(`/organizations/${id}`);
+        const response = await dedupeGet(`organization:${id}`, () =>
+            privetApi.get<Organization>(`/organizations/${id}`),
+        );
         // Adjust based on actual API response structure if it's nested in data
         return response.data;
     } catch (error: any) {
@@ -74,7 +89,9 @@ export const removeUserFromOrganization = async (orgId: number, userId: number) 
 
 export const getOrganizationUsers = async (orgId: number) => {
     try {
-        const response = await privetApi.get(`/organizations/${orgId}/users`);
+        const response = await dedupeGet(`organization-users:${orgId}`, () =>
+            privetApi.get(`/organizations/${orgId}/users`),
+        );
         return response.data;
     } catch (error: any) {
         throw error.response?.data || error;
@@ -83,7 +100,9 @@ export const getOrganizationUsers = async (orgId: number) => {
 
 export const getOrganizationRoles = async (orgId: number) => {
     try {
-        const response = await privetApi.get(`/organizations/${orgId}/roles`);
+        const response = await dedupeGet(`organization-roles:${orgId}`, () =>
+            privetApi.get(`/organizations/${orgId}/roles`),
+        );
         return response.data;
     } catch (error: any) {
         throw error.response?.data || error;
@@ -92,7 +111,9 @@ export const getOrganizationRoles = async (orgId: number) => {
 
 export const getOrganizationPlans = async (orgId: number) => {
     try {
-        const response = await privetApi.get(`/organizations/${orgId}/plans`);
+        const response = await dedupeGet(`organization-plans:${orgId}`, () =>
+            privetApi.get(`/organizations/${orgId}/plans`),
+        );
         return response.data;
     } catch (error: any) {
         throw error.response?.data || error;

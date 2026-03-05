@@ -11,6 +11,34 @@ import type {
 } from "@/types/rbac.type";
 
 type RawPermissions = PermissionsMap | { permissions?: PermissionsMap } | null | undefined;
+const inFlightGetRequests = new Map<string, Promise<any>>();
+const recentGetCache = new Map<string, { timestamp: number; value: any }>();
+const BURST_CACHE_MS = 500;
+
+const dedupeGet = async <T>(key: string, request: () => Promise<T>): Promise<T> => {
+  const now = Date.now();
+  const cached = recentGetCache.get(key);
+  if (cached && now - cached.timestamp < BURST_CACHE_MS) {
+    return cached.value as T;
+  }
+
+  const existing = inFlightGetRequests.get(key);
+  if (existing) {
+    return existing as Promise<T>;
+  }
+
+  const pending = request()
+    .then((result) => {
+      recentGetCache.set(key, { timestamp: Date.now(), value: result });
+      return result;
+    })
+    .finally(() => {
+      inFlightGetRequests.delete(key);
+    });
+
+  inFlightGetRequests.set(key, pending);
+  return pending;
+};
 
 const toRoleArray = (payload: unknown): unknown[] => {
   if (Array.isArray(payload)) return payload;
@@ -84,12 +112,16 @@ const normalizeRole = (raw: unknown): RbacRole => {
 };
 
 export const getAllRoles = async (): Promise<RbacRole[]> => {
-  const res = await privetApi.get<RbacRole[]>(`/rbac/roles`);
+  const res = await dedupeGet("rbac-roles:all", () =>
+    privetApi.get<RbacRole[]>(`/rbac/roles`),
+  );
   return toRoleArray(res.data).map((item) => normalizeRole(item));
 };
 
 export const getRoleById = async (id: number): Promise<RbacRole> => {
-  const res = await privetApi.get<RbacRole>(`/rbac/roles/${id}`);
+  const res = await dedupeGet(`rbac-role:${id}`, () =>
+    privetApi.get<RbacRole>(`/rbac/roles/${id}`),
+  );
   const payload =
     res.data && typeof res.data === "object" && "data" in (res.data as object)
       ? (res.data as { data?: unknown }).data ?? res.data
@@ -129,8 +161,9 @@ export const deleteRole = async (id: number): Promise<void> => {
 };
 
 export const getMyPermissions = async (): Promise<MyPermissionsResponse> => {
-  const res =
-    await privetApi.get<MyPermissionsResponse>(`/rbac/my-permissions`);
+  const res = await dedupeGet("rbac-my-permissions", () =>
+    privetApi.get<MyPermissionsResponse>(`/rbac/my-permissions`),
+  );
   const body = res.data as unknown;
   const payload =
     body && typeof body === "object" && "data" in (body as object)

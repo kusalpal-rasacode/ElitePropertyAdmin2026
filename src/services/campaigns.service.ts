@@ -1,6 +1,35 @@
 import { CampaignsPayload, CampaignsResponse, CampaignData } from "../types/campaigns.types";
 import { privetApi } from "./axios";
 
+const inFlightGetRequests = new Map<string, Promise<any>>();
+const recentGetCache = new Map<string, { timestamp: number; value: any }>();
+const BURST_CACHE_MS = 500;
+
+const dedupeGet = async <T>(key: string, request: () => Promise<T>): Promise<T> => {
+    const now = Date.now();
+    const cached = recentGetCache.get(key);
+    if (cached && now - cached.timestamp < BURST_CACHE_MS) {
+        return cached.value as T;
+    }
+
+    const existing = inFlightGetRequests.get(key);
+    if (existing) {
+        return existing as Promise<T>;
+    }
+
+    const pending = request()
+        .then((result) => {
+            recentGetCache.set(key, { timestamp: Date.now(), value: result });
+            return result;
+        })
+        .finally(() => {
+            inFlightGetRequests.delete(key);
+        });
+
+    inFlightGetRequests.set(key, pending);
+    return pending;
+};
+
 const findCampaignArray = (input: any, depth = 0): CampaignData[] | null => {
     if (depth > 4 || input == null) return null;
 
@@ -35,9 +64,12 @@ export const getCampaignsService = async (
     params?: CampaignsPayload
 ): Promise<CampaignsResponse> => {
     try {
-        const { data } = await privetApi.get<any>("/Campaign", {
-            params,
-        });
+        const queryKey = JSON.stringify(params ?? {});
+        const { data } = await dedupeGet(`campaigns:${queryKey}`, () =>
+            privetApi.get<any>("/Campaign", {
+                params,
+            }),
+        );
         const normalizedData = findCampaignArray(data) ?? [];
 
         return {
@@ -54,7 +86,9 @@ export const getCampaignsService = async (
 // GET CAMPAIGN BY ID
 export const getCampaignByIdService = async (id: number): Promise<CampaignData> => {
     try {
-        const { data } = await privetApi.get<{ data: CampaignData }>(`/Campaign/${id}`);
+        const { data } = await dedupeGet(`campaign:${id}`, () =>
+            privetApi.get<{ data: CampaignData }>(`/Campaign/${id}`),
+        );
         return data.data;
     } catch (error: any) {
         throw error.response?.data || error;

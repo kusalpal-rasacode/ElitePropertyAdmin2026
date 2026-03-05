@@ -537,7 +537,8 @@ export default function OrganizationDetailsPage() {
         </div>
       </div>
 
-      {/* Add User Modal */}
+      {/*
+      Add User Modal (temporarily disabled)
       {isAddUserModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div
@@ -608,6 +609,7 @@ export default function OrganizationDetailsPage() {
           </div>
         </div>
       )}
+      */}
 
       {/* Edit Organization Modal */}
       {isEditModalOpen && (

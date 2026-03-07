@@ -4,36 +4,9 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MdArrowBack, MdSecurity } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
-import { createRole } from "@/services/rbac.service";
+import { createRole, getActiveModuleConfig, ACTION_CONFIG } from "@/services/rbac.service";
 import { getOrganizations } from "@/services/organization.service";
 import { Organization } from "@/types/organization.types";
-
-type ActionKey = "view" | "add" |  "edit" | "delete";
-type ModuleKey = "campaign" | "properties" | "user_management";
-
-const MODULES: { key: ModuleKey; label: string }[] = [
-    { key: "campaign", label: "Campaign" },
-    { key: "properties", label: "Properties" },
-    { key: "user_management", label: "User Management" },
-];
-
-const ACTIONS: { key: ActionKey; label: string }[] = [
-    { key: "view", label: "View" },
-    { key: "add", label: "Add" },    
-    { key: "edit", label: "Edit" },
-    { key: "delete", label: "Delete" },
-];
-
-type PermissionsMatrix = Record<ModuleKey, Record<ActionKey, boolean>>;
-
-const defaultPermissions = (): PermissionsMatrix =>
-    MODULES.reduce((acc, mod) => {
-        acc[mod.key] = ACTIONS.reduce((a, act) => {
-            a[act.key] = false;
-            return a;
-        }, {} as Record<ActionKey, boolean>);
-        return acc;
-    }, {} as PermissionsMatrix);
 
 export default function AddRoleForm() {
     const { currentTheme } = useTheme();
@@ -41,67 +14,71 @@ export default function AddRoleForm() {
 
     const [role, setRole] = useState("");
     const [organizationId, setOrganizationId] = useState<number | "">("");
-    const [permissions, setPermissions] = useState<PermissionsMatrix>(defaultPermissions());
+    const [permissions, setPermissions] = useState<Record<string, Record<string, boolean>>>({});
+    const [activeModules, setActiveModules] = useState<{ key: string; label: string }[]>([]);
     const [organizations, setOrganizations] = useState<Organization[]>([]);
     const [loadingOrgs, setLoadingOrgs] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
+        const mods = getActiveModuleConfig();
+        setActiveModules(mods);
+        setPermissions(mods.reduce((acc, mod) => {
+            acc[mod.key] = ACTION_CONFIG.reduce((a, act) => {
+                a[act.key] = false;
+                return a;
+            }, {} as Record<string, boolean>);
+            return acc;
+        }, {} as Record<string, Record<string, boolean>>));
+
         getOrganizations({ limit: 100 })
             .then((res) => setOrganizations(res.data))
             .catch(() => setOrganizations([]))
             .finally(() => setLoadingOrgs(false));
     }, []);
 
-    const togglePermission = (mod: ModuleKey, action: ActionKey) => {
+    const togglePermission = (mod: string, action: string) => {
         setPermissions((prev) => ({
             ...prev,
             [mod]: {
                 ...prev[mod],
-                [action]: !prev[mod][action],
+                [action]: !prev[mod]?.[action],
             },
         }));
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!role.trim() ) return;
+        if (!role.trim()) return;
         // || organizationId === ""
 
         setSubmitting(true);
         setError(null);
-         let payload;
-if (organizationId !== "") {
-      payload = {
-            role: role.trim(),
-            organization_id: organizationId,
-            permission: [
-                {
-                    campaign: permissions.campaign,
-                    properties: permissions.properties,
-                    user_management: permissions.user_management,
-                },
-            ],
-        };
-}else{
-      payload = {
-            role: role.trim(), 
-            permission: [
-                {
-                    campaign: permissions.campaign,
-                    properties: permissions.properties,
-                    user_management: permissions.user_management,
-                },
-            ],
-        };
-}
-      
+        let permissionObj: any = {};
+        activeModules.forEach(mod => {
+            permissionObj[mod.key] = permissions[mod.key] ?? {};
+        });
+
+        let payload;
+        if (organizationId !== "") {
+            payload = {
+                role: role.trim(),
+                organization_id: organizationId,
+                permission: [permissionObj],
+            };
+        } else {
+            payload = {
+                role: role.trim(),
+                permission: [permissionObj],
+            };
+        }
+
 
         try {
-           const response= await createRole(payload);
-           console.log('response',response);
-           
+            const response = await createRole(payload);
+            console.log('response', response);
+
             router.push("/roles");
         } catch (err: any) {
             setError(err?.response?.data?.message ?? "Failed to create role. Please try again.");
@@ -222,7 +199,7 @@ if (organizationId !== "") {
                                         >
                                             Module
                                         </th>
-                                        {ACTIONS.map((action) => (
+                                        {ACTION_CONFIG.map((action) => (
                                             <th
                                                 key={action.key}
                                                 className="px-5 py-3 text-xs font-bold uppercase tracking-wider text-center"
@@ -237,7 +214,7 @@ if (organizationId !== "") {
                                     className="divide-y"
                                     style={{ borderColor: currentTheme.borderColor }}
                                 >
-                                    {MODULES.map((mod) => (
+                                    {activeModules.map((mod) => (
                                         <tr
                                             key={mod.key}
                                             className="transition-colors hover:bg-black/[0.02]"
@@ -257,11 +234,11 @@ if (organizationId !== "") {
                                                     </span>
                                                 </div>
                                             </td>
-                                            {ACTIONS.map((action) => {
-                                                const isChecked = permissions[mod.key][action.key];
+                                            {ACTION_CONFIG.map((action) => {
+                                                const isChecked = permissions[mod.key]?.[action.key] ?? false;
                                                 const isDisabled =
                                                     action.key !== "view" &&
-                                                    !permissions[mod.key].view;
+                                                    !permissions[mod.key]?.view;
                                                 return (
                                                     <td key={action.key} className="px-5 py-4 text-center">
                                                         <label
@@ -270,7 +247,6 @@ if (organizationId !== "") {
                                                             <input
                                                                 type="checkbox"
                                                                 className="sr-only"
-                                                                // checked={isChecked}
                                                                 onChange={() => !isDisabled && togglePermission(mod.key, action.key)}
                                                                 disabled={isDisabled}
                                                             />

@@ -9,12 +9,15 @@ import { PropertyData } from "@/types/properties.types";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { showSuccessToast, showErrorToast } from "@/utils/toast";
 import { useModulePermission } from "@/hooks/useModulePermission";
+import { useAuth } from "@/providers/AuthProvider";
+import { isSuperAdmin } from "@/utils/authUtils";
 
 function PropertiesContent() {
     const { currentTheme } = useTheme();
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const { user } = useAuth();
     const { permissionReady, can } = useModulePermission("properties");
     const canViewProperties = can("view");
     const canAddProperties = can("add");
@@ -353,16 +356,18 @@ function PropertiesContent() {
                         >
                             Active Listings
                         </button>
-                        <button
-                            onClick={() => handleSetActiveTab('pending')}
-                            className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'pending' ? 'shadow-sm' : 'hover:bg-black/5 opacity-60'}`}
-                            style={{
-                                backgroundColor: activeTab === 'pending' ? currentTheme.primary : 'transparent',
-                                color: activeTab === 'pending' ? '#fff' : currentTheme.textColor
-                            }}
-                        >
-                            Pending Approval
-                        </button>
+                        {isSuperAdmin(user) && (
+                            <button
+                                onClick={() => handleSetActiveTab('pending')}
+                                className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === 'pending' ? 'shadow-sm' : 'hover:bg-black/5 opacity-60'}`}
+                                style={{
+                                    backgroundColor: activeTab === 'pending' ? currentTheme.primary : 'transparent',
+                                    color: activeTab === 'pending' ? '#fff' : currentTheme.textColor
+                                }}
+                            >
+                                Pending Approval
+                            </button>
+                        )}
                     </div>
                 </div>
 

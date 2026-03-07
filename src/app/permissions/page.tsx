@@ -8,6 +8,32 @@ import {
   MdCampaign,
   MdBusiness,
   MdManageAccounts,
+  MdExtension,
+  MdDeleteOutline,
+  MdModeEditOutline,
+  MdDashboard,
+  MdWidgets,
+  MdLayers,
+  MdFolder,
+  MdSettings,
+  MdPublic,
+  MdApps,
+  MdGroupWork,
+  MdBubbleChart,
+  MdEmail,
+  MdPeople,
+  MdReport,
+  MdAttachMoney,
+  MdPayment,
+  MdShoppingCart,
+  MdEvent,
+  MdNotifications,
+  MdSecurity,
+  MdAnalytics,
+  MdChat,
+  MdAssignment,
+  MdCheck,
+  MdClose,
 } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
 
@@ -17,8 +43,12 @@ import {
   updateRolePermissions,
   mapPermissionsToMatrix,
   mapMatrixToPermissionsMap,
-  MODULE_CONFIG,
   ACTION_CONFIG,
+  MODULE_CONFIG,
+  getActiveModuleConfig,
+  addDynamicModule,
+  removeDynamicModule,
+  updateDynamicModule,
 } from "@/services/rbac.service";
 import type {
   RbacRole,
@@ -27,6 +57,7 @@ import type {
   ActionKey,
 } from "@/types/rbac.type";
 import { showSuccessToast, showErrorToast } from "@/utils/toast";
+import { ConfirmModal } from "@/components/common/ConfirmModal";
 // ============================================================
 // Icon map per module key
 // ============================================================
@@ -34,6 +65,72 @@ const MODULE_ICONS: Record<ModuleKey, React.ReactNode> = {
   campaign: <MdCampaign size={20} />,
   properties: <MdBusiness size={20} />,
   user_management: <MdManageAccounts size={20} />,
+};
+
+const DYNAMIC_ICONS = [
+  MdExtension,
+  MdDashboard,
+  MdWidgets,
+  MdLayers,
+  MdFolder,
+  MdSettings,
+  MdPublic,
+  MdApps,
+  MdGroupWork,
+  MdBubbleChart,
+];
+
+const SEMANTIC_MAPPING: Record<string, React.FC<any>> = {
+  setting: MdSettings,
+  user: MdPeople,
+  people: MdPeople,
+  client: MdPeople,
+  feedback: MdChat,
+  email: MdEmail,
+  message: MdChat,
+  chat: MdChat,
+  report: MdReport,
+  analytic: MdAnalytics,
+  money: MdAttachMoney,
+  bill: MdAttachMoney,
+  invoice: MdAttachMoney,
+  pay: MdPayment,
+  cart: MdShoppingCart,
+  shop: MdShoppingCart,
+  store: MdShoppingCart,
+  event: MdEvent,
+  calendar: MdEvent,
+  notif: MdNotifications,
+  alert: MdNotifications,
+  secur: MdSecurity,
+  role: MdSecurity,
+  auth: MdSecurity,
+  task: MdAssignment,
+  assign: MdAssignment,
+  form: MdAssignment,
+  admin: MdManageAccounts,
+  dash: MdDashboard,
+  folder: MdFolder,
+  public: MdPublic,
+  web: MdPublic,
+  app: MdApps,
+};
+
+const getDynamicIcon = (key: string) => {
+  const lowercaseKey = key.toLowerCase();
+
+  for (const [keyword, IconComponent] of Object.entries(SEMANTIC_MAPPING)) {
+    if (lowercaseKey.includes(keyword)) {
+      return <IconComponent size={20} />;
+    }
+  }
+
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = key.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const IconComponent = DYNAMIC_ICONS[Math.abs(hash) % DYNAMIC_ICONS.length];
+  return <IconComponent size={20} />;
 };
 
 // ============================================================
@@ -80,6 +177,70 @@ export default function PermissionsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
+  const [activeModules, setActiveModules] = useState<{ key: string; label: string }[]>([]);
+  const [isAddingModule, setIsAddingModule] = useState(false);
+  const [newModuleLabel, setNewModuleLabel] = useState("");
+
+  const [editingModuleKey, setEditingModuleKey] = useState<string | null>(null);
+  const [editingModuleLabel, setEditingModuleLabel] = useState("");
+
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [moduleToDelete, setModuleToDelete] = useState<{ key: string, label: string } | null>(null);
+
+  useEffect(() => {
+    setActiveModules(getActiveModuleConfig());
+  }, []);
+
+  const handleAddModule = () => {
+    if (!newModuleLabel.trim()) return;
+    const key = newModuleLabel.trim().toLowerCase().replace(/[\s_-]+/g, "_");
+    addDynamicModule(key, newModuleLabel.trim());
+    setActiveModules(getActiveModuleConfig());
+
+    setPermissions((prev) => {
+      const newPerms = { ...prev };
+      if (!newPerms[key]) {
+        newPerms[key] = ACTION_CONFIG.reduce((acc, a) => ({ ...acc, [a.key]: false }), {} as any);
+      }
+      return newPerms;
+    });
+
+    setNewModuleLabel("");
+    setIsAddingModule(false);
+  };
+
+  const handleRemoveModuleClick = (keyToRemove: string, label: string) => {
+    setModuleToDelete({ key: keyToRemove, label });
+    setIsDeleteModalOpen(true);
+  };
+
+  const confirmRemoveModule = () => {
+    if (moduleToDelete) {
+      removeDynamicModule(moduleToDelete.key);
+      setActiveModules(getActiveModuleConfig());
+    }
+    setIsDeleteModalOpen(false);
+    setModuleToDelete(null);
+  };
+
+  const handleEditModuleStart = (key: string, currentLabel: string) => {
+    setEditingModuleKey(key);
+    setEditingModuleLabel(currentLabel);
+  };
+
+  const handleEditModuleSave = () => {
+    if (!editingModuleKey || !editingModuleLabel.trim()) return;
+    updateDynamicModule(editingModuleKey, editingModuleLabel.trim());
+    setActiveModules(getActiveModuleConfig());
+    setEditingModuleKey(null);
+    setEditingModuleLabel("");
+  };
+
+  const handleEditModuleCancel = () => {
+    setEditingModuleKey(null);
+    setEditingModuleLabel("");
+  };
+
   // ---- derived — uses PascalCase Name from API -------------
   const isSuperAdmin = isSuperAdminRole(selectedRole);
 
@@ -103,8 +264,8 @@ export default function PermissionsPage() {
       } catch (err: any) {
         setError(
           err?.response?.data?.message ??
-            err?.message ??
-            "Failed to load roles.",
+          err?.message ??
+          "Failed to load roles.",
         );
       } finally {
         setLoading(false);
@@ -140,8 +301,8 @@ export default function PermissionsPage() {
       } catch (err: any) {
         setError(
           err?.response?.data?.message ??
-            err?.message ??
-            "Failed to load role.",
+          err?.message ??
+          "Failed to load role.",
         );
       }
     },
@@ -177,7 +338,7 @@ export default function PermissionsPage() {
   // ---- save via PATCH /rbac/roles/{id} --------------------
   const handleSave = async () => {
     console.log(selectedRole);
-    
+
     if (!selectedRole || isSuperAdmin) return;
     setSaving(true);
     setSaveMsg(null);
@@ -401,112 +562,226 @@ export default function PermissionsPage() {
               >
                 {loading
                   ? // Skeleton rows
-                    Array.from({ length: 3 }).map((_, i) => (
-                      <tr key={i}>
-                        <td className="px-6 py-4">
+                  Array.from({ length: 3 }).map((_, i) => (
+                    <tr key={i}>
+                      <td className="px-6 py-4">
+                        <div
+                          className="h-4 w-32 rounded animate-pulse"
+                          style={{
+                            backgroundColor: currentTheme.borderColor,
+                          }}
+                        />
+                      </td>
+                      {ACTION_CONFIG.map((a: { key: ActionKey }) => (
+                        <td key={a.key} className="px-4 py-4 text-center">
                           <div
-                            className="h-4 w-32 rounded animate-pulse"
+                            className="h-5 w-10 rounded-full mx-auto animate-pulse"
                             style={{
                               backgroundColor: currentTheme.borderColor,
                             }}
                           />
                         </td>
-                        {ACTION_CONFIG.map((a: { key: ActionKey }) => (
-                          <td key={a.key} className="px-4 py-4 text-center">
-                            <div
-                              className="h-5 w-10 rounded-full mx-auto animate-pulse"
-                              style={{
-                                backgroundColor: currentTheme.borderColor,
-                              }}
-                            />
-                          </td>
-                        ))}
-                      </tr>
-                    ))
-                  : MODULE_CONFIG.map(
-                      (module: { key: ModuleKey; label: string | any }) => (
-                        <tr
-                          key={module.key}
-                          className="hover:bg-gray-500/5 transition-colors"
-                        >
-                          {/* Module label */}
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <span style={{ color: currentTheme.textColor }}>
-                                {MODULE_ICONS[module.key as ModuleKey]}
-                              </span>
-                              <p
-                                className="font-bold text-sm"
-                                style={{ color: currentTheme.headingColor }}
-                              >
-                                {module.label}
-                              </p>
-                            </div>
-                          </td>
+                      ))}
+                    </tr>
+                  ))
+                  : activeModules.map(
+                    (module: { key: string; label: string | any }) => (
+                      <tr
+                        key={module.key}
+                        className="hover:bg-gray-500/5 transition-colors group"
+                      >
+                        {/* Module label */}
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-3">
+                            <span style={{ color: currentTheme.textColor }}>
+                              {MODULE_ICONS[module.key as ModuleKey] || getDynamicIcon(module.key)}
+                            </span>
 
-                          {/* Toggle switches */}
-                          {ACTION_CONFIG.map((action: { key: ActionKey }) => {
-                            const isChecked =
-                              permissions[module.key]?.[action.key] ?? false;
-                            // Non-view actions are disabled when view is off
-                            const isDisabled =
-                              action.key !== "view" &&
-                              !permissions[module.key]?.view;
-
-                            return (
-                              <td
-                                key={action.key}
-                                className="px-4 py-4 text-center"
-                              >
-                                <label
-                                  className={`inline-flex items-center justify-center cursor-pointer ${
-                                    isSuperAdmin || isDisabled
-                                      ? "opacity-50 cursor-not-allowed"
-                                      : ""
-                                  }`}
+                            {editingModuleKey === module.key ? (
+                              <div className="flex flex-1 items-center gap-2">
+                                <input
+                                  type="text"
+                                  autoFocus
+                                  value={editingModuleLabel}
+                                  onChange={(e) => setEditingModuleLabel(e.target.value)}
+                                  onKeyDown={(e) => e.key === 'Enter' && handleEditModuleSave()}
+                                  className="px-2 py-1 border rounded text-sm outline-none focus:ring-2 w-full max-w-[150px]"
+                                  style={{
+                                    backgroundColor: currentTheme.background,
+                                    borderColor: currentTheme.borderColor,
+                                    color: currentTheme.textColor,
+                                  }}
+                                />
+                                <button
+                                  onClick={handleEditModuleSave}
+                                  className="text-green-600 hover:text-green-700 hover:scale-110 transition-all font-bold"
+                                  title="Save"
                                 >
-                                  <input
-                                    type="checkbox"
-                                    className="sr-only"
-                                    checked={isSuperAdmin ? true : isChecked}
-                                    onChange={() =>
-                                      !isSuperAdmin &&
-                                      !isDisabled &&
-                                      handleToggle(module.key, action.key)
-                                    }
-                                    disabled={isDisabled || isSuperAdmin}
-                                  />
-                                  {/* Toggle track */}
-                                  <div
-                                    className="w-10 h-5 rounded-full transition-colors duration-200 ease-in-out relative"
-                                    style={{
-                                      backgroundColor:
-                                        isChecked || isSuperAdmin
-                                          ? currentTheme.primary
-                                          : currentTheme.borderColor,
-                                    }}
-                                  >
-                                    {/* Toggle thumb */}
-                                    <div
-                                      className={`absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${
-                                        isChecked || isSuperAdmin
-                                          ? "translate-x-5"
-                                          : "translate-x-0"
-                                      }`}
-                                    />
+                                  <MdCheck size={20} />
+                                </button>
+                                <button
+                                  onClick={handleEditModuleCancel}
+                                  className="text-red-500 hover:text-red-600 hover:scale-110 transition-all font-bold"
+                                  title="Cancel"
+                                >
+                                  <MdClose size={20} />
+                                </button>
+                              </div>
+                            ) : (
+                              <>
+                                <p
+                                  className="font-bold text-sm truncate"
+                                  style={{ color: currentTheme.headingColor }}
+                                >
+                                  {module.label}
+                                </p>
+                                {!MODULE_CONFIG.some((m) => m.key === module.key) && (
+                                  <div className="ml-auto flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button
+                                      onClick={() => handleEditModuleStart(module.key, module.label)}
+                                      className="text-blue-500 hover:scale-110 transition-all"
+                                      title="Edit Module Name"
+                                    >
+                                      <MdModeEditOutline size={18} />
+                                    </button>
+                                    <button
+                                      onClick={() => handleRemoveModuleClick(module.key, module.label)}
+                                      className="text-red-500 hover:scale-110 transition-all"
+                                      title="Delete Module"
+                                    >
+                                      <MdDeleteOutline size={18} />
+                                    </button>
                                   </div>
-                                </label>
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ),
-                    )}
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Toggle switches */}
+                        {ACTION_CONFIG.map((action: { key: ActionKey }) => {
+                          const isChecked =
+                            permissions[module.key]?.[action.key] ?? false;
+                          // Non-view actions are disabled when view is off
+                          const isDisabled =
+                            action.key !== "view" &&
+                            !permissions[module.key]?.view;
+
+                          return (
+                            <td
+                              key={action.key}
+                              className="px-4 py-4 text-center"
+                            >
+                              <label
+                                className={`inline-flex items-center justify-center cursor-pointer ${isSuperAdmin || isDisabled
+                                  ? "opacity-50 cursor-not-allowed"
+                                  : ""
+                                  }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="sr-only"
+                                  checked={isSuperAdmin ? true : isChecked}
+                                  onChange={() =>
+                                    !isSuperAdmin &&
+                                    !isDisabled &&
+                                    handleToggle(module.key, action.key)
+                                  }
+                                  disabled={isDisabled || isSuperAdmin}
+                                />
+                                {/* Toggle track */}
+                                <div
+                                  className="w-10 h-5 rounded-full transition-colors duration-200 ease-in-out relative"
+                                  style={{
+                                    backgroundColor:
+                                      isChecked || isSuperAdmin
+                                        ? currentTheme.primary
+                                        : currentTheme.borderColor,
+                                  }}
+                                >
+                                  {/* Toggle thumb */}
+                                  <div
+                                    className={`absolute top-0.5 left-0.5 bg-white w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${isChecked || isSuperAdmin
+                                      ? "translate-x-5"
+                                      : "translate-x-0"
+                                      }`}
+                                  />
+                                </div>
+                              </label>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ),
+                  )}
+                {/* Add Target Module UI */}
+                {!loading && (
+                  isAddingModule ? (
+                    <tr>
+                      <td colSpan={ACTION_CONFIG.length + 1} className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="text"
+                            autoFocus
+                            value={newModuleLabel}
+                            onChange={(e) => setNewModuleLabel(e.target.value)}
+                            placeholder="Enter module name"
+                            className="px-3 py-1.5 border rounded-lg text-sm outline-none focus:ring-2"
+                            style={{
+                              backgroundColor: currentTheme.background,
+                              borderColor: currentTheme.borderColor,
+                              color: currentTheme.textColor,
+                            }}
+                          />
+                          <button
+                            onClick={handleAddModule}
+                            className="px-3 py-1.5 text-xs font-bold text-white rounded-lg hover:brightness-110"
+                            style={{ backgroundColor: currentTheme.primary }}
+                          >
+                            Add
+                          </button>
+                          <button
+                            onClick={() => setIsAddingModule(false)}
+                            className="px-3 py-1.5 text-xs font-bold rounded-lg border hover:bg-black/5"
+                            style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr>
+                      <td colSpan={ACTION_CONFIG.length + 1} className="px-6 py-4">
+                        <button
+                          onClick={() => setIsAddingModule(true)}
+                          className="text-sm font-bold flex items-center gap-2 hover:opacity-80 transition-opacity"
+                          style={{ color: currentTheme.primary }}
+                        >
+                          + Add Target Module
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                )}
               </tbody>
             </table>
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false);
+          setModuleToDelete(null);
+        }}
+        onConfirm={confirmRemoveModule}
+        title="Delete Module?"
+        message={`Are you sure you want to delete the "${moduleToDelete?.label}" module? This action cannot be undone.`}
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+      />
     </div>
   );
 }

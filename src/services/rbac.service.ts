@@ -27,7 +27,9 @@ const toRoleArray = (payload: unknown): unknown[] => {
 const normalizePermissionsMap = (raw: unknown): PermissionsMap => {
   if (!raw || typeof raw !== "object") return {};
   const source = raw as Record<string, unknown>;
-  return MODULE_KEYS.reduce((acc, mod) => {
+
+  const keys = getActiveModuleKeys();
+  return keys.reduce((acc, mod) => {
     const modulePerms = source[mod];
     if (!modulePerms || typeof modulePerms !== "object") return acc;
     const moduleRecord = modulePerms as Record<string, unknown>;
@@ -142,9 +144,9 @@ export const getMyPermissions = async (): Promise<MyPermissionsResponse> => {
     ...(entry as MyPermissionsResponse),
     role: String(
       (entry as { role?: unknown; name?: unknown; Name?: unknown })?.role ??
-        (entry as { role?: unknown; name?: unknown; Name?: unknown })?.name ??
-        (entry as { role?: unknown; name?: unknown; Name?: unknown })?.Name ??
-        "",
+      (entry as { role?: unknown; name?: unknown; Name?: unknown })?.name ??
+      (entry as { role?: unknown; name?: unknown; Name?: unknown })?.Name ??
+      "",
     ),
     permissions: map,
   };
@@ -156,20 +158,20 @@ export const MODULE_CONFIG: {
   key: ModuleKey;
   label: string;
 }[] = [
-  { key: "campaign", label: "Campaigns" },
-  { key: "properties", label: "Properties" },
-  { key: "user_management", label: "User Management" },
-];
+    { key: "campaign", label: "Campaigns" },
+    { key: "properties", label: "Properties" },
+    { key: "user_management", label: "User Management" },
+  ];
 
 export const ACTION_CONFIG: {
   key: ActionKey;
   label: string;
-}[] = [ { key: "view", label: "View" },
-  { key: "add", label: "Add" },
- 
-  { key: "edit", label: "Edit" },
-  { key: "delete", label: "Delete" },
-];
+}[] = [{ key: "view", label: "View" },
+{ key: "add", label: "Add" },
+
+{ key: "edit", label: "Edit" },
+{ key: "delete", label: "Delete" },
+  ];
 
 export const MODULE_KEYS = MODULE_CONFIG.map((m) => m.key);
 export const ACTION_KEYS = ACTION_CONFIG.map((a) => a.key);
@@ -182,10 +184,59 @@ const API_KEY_NORMALISE: Record<string, ModuleKey> = {
   user_management: "user_management",
 };
 
+const LOCAL_STORAGE_KEY = 'elite_dynamic_modules_v2';
+
+export const getDynamicModules = (): { key: string; label: string }[] => {
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (stored) return JSON.parse(stored);
+    } catch (e) { }
+  }
+  return [];
+};
+
+export const addDynamicModule = (key: string, label: string) => {
+  const current = getDynamicModules();
+  // Check if it already exists in static or dynamic
+  if (!MODULE_CONFIG.some(m => m.key === key) && !current.some(m => m.key === key)) {
+    const newModules = [...current, { key, label }];
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newModules));
+    }
+  }
+};
+
+export const removeDynamicModule = (key: string) => {
+  const current = getDynamicModules();
+  const newModules = current.filter(m => m.key !== key);
+  if (current.length !== newModules.length && typeof window !== 'undefined') {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newModules));
+  }
+};
+
+export const updateDynamicModule = (key: string, label: string) => {
+  const current = getDynamicModules();
+  const index = current.findIndex(m => m.key === key);
+  if (index !== -1 && typeof window !== 'undefined') {
+    current[index].label = label;
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(current));
+  }
+};
+
+export const getActiveModuleConfig = () => {
+  return [...MODULE_CONFIG, ...getDynamicModules()];
+};
+
+export const getActiveModuleKeys = () => {
+  return getActiveModuleConfig().map((m) => m.key);
+};
+
 export function mapPermissionsToMatrix(
   permissionEntries: RbacRole["permissions"],
 ): PermissionsMatrix {
-  const matrix = MODULE_KEYS.reduce((acc, mod) => {
+  const keys = getActiveModuleKeys();
+  const matrix = keys.reduce((acc, mod) => {
     acc[mod] = ACTION_KEYS.reduce(
       (a, act) => {
         a[act] = false;
@@ -199,8 +250,8 @@ export function mapPermissionsToMatrix(
   const permMap = extractPermissionsMap(permissionEntries);
 
   (Object.keys(permMap) as string[]).forEach((rawKey) => {
-    const mod = API_KEY_NORMALISE[rawKey];
-    if (!mod || !matrix[mod]) return;
+    const mod = API_KEY_NORMALISE[rawKey] || rawKey;
+    if (!matrix[mod]) return;
 
     const modulePerms = permMap[rawKey as keyof typeof permMap];
     if (!modulePerms) return;
@@ -218,7 +269,8 @@ export function mapPermissionsToMatrix(
 export function mapMatrixToPermissionsMap(
   matrix: PermissionsMatrix,
 ): PermissionsMap {
-  return MODULE_KEYS.reduce((acc, mod) => {
+  const keys = getActiveModuleKeys();
+  return keys.reduce((acc, mod) => {
     acc[mod] = ACTION_KEYS.reduce(
       (a, act) => {
         a[act] = matrix[mod]?.[act] ?? false;

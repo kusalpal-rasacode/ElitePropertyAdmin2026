@@ -1,14 +1,14 @@
-//  Action keys used in the permissions object ---
+// Action keys used in the permissions object ---
 export type ActionKey = "view" | "add" | "edit" | "delete";
 
-// RBAC module keys returned by API payloads.
-export type ModuleKey = "campaign" | "properties" | "user_management";
+// RBAC module keys returned by API payloads. Can be dynamic now.
+export type ModuleKey = string; // was "campaign" | "properties" | "user_management"
 
-//  Per-module action map -
+// Per-module action map -
 export type ModulePermissions = Record<ActionKey, boolean>;
 
-//  Nested permissions object inside a permission entry
-export type PermissionsMap = Partial<Record<ModuleKey, ModulePermissions>>;
+// Nested permissions object inside a permission entry
+export type PermissionsMap = Record<ModuleKey, ModulePermissions>;
 
 //  Single item inside the role's permissions array --
 export interface RbacPermissionEntry {

@@ -49,6 +49,7 @@ import {
   addDynamicModule,
   removeDynamicModule,
   updateDynamicModule,
+  syncPermissionModulesFromApi
 } from "@/services/rbac.service";
 import type {
   RbacRole,
@@ -191,36 +192,44 @@ export default function PermissionsPage() {
     setActiveModules(getActiveModuleConfig());
   }, []);
 
-  const handleAddModule = () => {
-    if (!newModuleLabel.trim()) return;
-    const key = newModuleLabel.trim().toLowerCase().replace(/[\s_-]+/g, "_");
-    addDynamicModule(key, newModuleLabel.trim());
+  const handleAddModule = async () => {
+  if (!newModuleLabel.trim()) return;
+  const key = newModuleLabel.trim().toLowerCase().replace(/[\s_-]+/g, "_");
+  try {
+    await addDynamicModule(key, newModuleLabel.trim());
     setActiveModules(getActiveModuleConfig());
-
     setPermissions((prev) => {
-      const newPerms = { ...prev };
-      if (!newPerms[key]) {
-        newPerms[key] = ACTION_CONFIG.reduce((acc, a) => ({ ...acc, [a.key]: false }), {} as any);
-      }
-      return newPerms;
+      if (prev[key]) return prev;
+      return {
+        ...prev,
+        [key]: ACTION_CONFIG.reduce((acc, a) => ({ ...acc, [a.key]: false }), {} as any),
+      };
     });
-
     setNewModuleLabel("");
     setIsAddingModule(false);
-  };
+    showSuccessToast("Module added successfully.");
+  } catch (err: any) {
+    showErrorToast(err?.response?.data?.message ?? "Failed to add module.");
+  }
+};
+
+const confirmRemoveModule = async () => {
+  if (!moduleToDelete) return;
+  try {
+    await removeDynamicModule(moduleToDelete.key);
+    setActiveModules(getActiveModuleConfig());
+    showSuccessToast("Module deleted successfully.");
+  } catch (err: any) {
+    showErrorToast(err?.response?.data?.message ?? "Failed to delete module.");
+  } finally {
+    setIsDeleteModalOpen(false);
+    setModuleToDelete(null);
+  }
+};
 
   const handleRemoveModuleClick = (keyToRemove: string, label: string) => {
     setModuleToDelete({ key: keyToRemove, label });
     setIsDeleteModalOpen(true);
-  };
-
-  const confirmRemoveModule = () => {
-    if (moduleToDelete) {
-      removeDynamicModule(moduleToDelete.key);
-      setActiveModules(getActiveModuleConfig());
-    }
-    setIsDeleteModalOpen(false);
-    setModuleToDelete(null);
   };
 
   const handleEditModuleStart = (key: string, currentLabel: string) => {
@@ -245,33 +254,31 @@ export default function PermissionsPage() {
   const isSuperAdmin = isSuperAdminRole(selectedRole);
 
   // ---- load all roles on mount ----------------------------
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getAllRoles();
-        setRoles(data);
+useEffect(() => {
+  (async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Seed dynamic modules from API first, then load roles
+      await syncPermissionModulesFromApi();
+      setActiveModules(getActiveModuleConfig());
 
-        if (data.length > 0) {
-          const first = data[0];
-          // API uses nested permissions array — pass it to mapper
-          const matrix = mapPermissionsToMatrix(first.permissions);
-          setSelectedRole(first);
-          setPermissions(matrix);
-          setOriginalMatrix(matrix);
-        }
-      } catch (err: any) {
-        setError(
-          err?.response?.data?.message ??
-          err?.message ??
-          "Failed to load roles.",
-        );
-      } finally {
-        setLoading(false);
+      const data = await getAllRoles();
+      setRoles(data);
+      if (data.length > 0) {
+        const first = data[0];
+        const matrix = mapPermissionsToMatrix(first.permissions);
+        setSelectedRole(first);
+        setPermissions(matrix);
+        setOriginalMatrix(matrix);
       }
-    })();
-  }, []);
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? err?.message ?? "Failed to load roles.");
+    } finally {
+      setLoading(false);
+    }
+  })();
+}, []);
 
   // ---- when dropdown changes, fetch fresh role by ID ------
   const handleRoleChange = useCallback(

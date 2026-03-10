@@ -8,9 +8,12 @@ import type {
   PermissionsMap,
   ModuleKey,
   ActionKey,
+  PermissionModule,
 } from "@/types/rbac.type";
 
 type RawPermissions = PermissionsMap | { permissions?: PermissionsMap } | null | undefined;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const toRoleArray = (payload: unknown): unknown[] => {
   if (Array.isArray(payload)) return payload;
@@ -27,7 +30,6 @@ const toRoleArray = (payload: unknown): unknown[] => {
 const normalizePermissionsMap = (raw: unknown): PermissionsMap => {
   if (!raw || typeof raw !== "object") return {};
   const source = raw as Record<string, unknown>;
-
   const keys = getActiveModuleKeys();
   return keys.reduce((acc, mod) => {
     const modulePerms = source[mod];
@@ -47,20 +49,14 @@ const extractPermissionsMap = (entries: RawPermissions[] | unknown): Permissions
     const first = entries[0] as RawPermissions;
     if (!first || typeof first !== "object") return {};
     const inner = (first as { permissions?: unknown }).permissions;
-    if (inner && typeof inner === "object") {
-      return normalizePermissionsMap(inner);
-    }
+    if (inner && typeof inner === "object") return normalizePermissionsMap(inner);
     return normalizePermissionsMap(first);
   }
-
   if (entries && typeof entries === "object") {
     const inner = (entries as { permissions?: unknown }).permissions;
-    if (inner && typeof inner === "object") {
-      return normalizePermissionsMap(inner);
-    }
+    if (inner && typeof inner === "object") return normalizePermissionsMap(inner);
     return normalizePermissionsMap(entries);
   }
-
   return {};
 };
 
@@ -70,7 +66,6 @@ const normalizeRole = (raw: unknown): RbacRole => {
   const roleName = String(input.role ?? input.name ?? input.Name ?? "");
   const roleTitle = String(input.role_title ?? "");
   const permissionsMap = extractPermissionsMap(input.permissions);
-
   return {
     ...(input as unknown as Partial<RbacRole>),
     id,
@@ -84,6 +79,8 @@ const normalizeRole = (raw: unknown): RbacRole => {
     user_count: Number(input.user_count ?? (Array.isArray(input.users) ? input.users.length : 0)),
   };
 };
+
+// ─── Role APIs ────────────────────────────────────────────────────────────────
 
 export const getAllRoles = async (): Promise<RbacRole[]> => {
   const res = await privetApi.get<RbacRole[]>(`/rbac/roles`);
@@ -99,9 +96,7 @@ export const getRoleById = async (id: number): Promise<RbacRole> => {
   return normalizeRole(payload);
 };
 
-export const createRole = async (
-  payload: CreateRolePayload,
-): Promise<RbacRole> => {
+export const createRole = async (payload: CreateRolePayload): Promise<RbacRole> => {
   const res = await privetApi.post<RbacRole>(`/rbac/roles`, payload);
   const body = res.data as unknown;
   const rolePayload =
@@ -131,8 +126,7 @@ export const deleteRole = async (id: number): Promise<void> => {
 };
 
 export const getMyPermissions = async (): Promise<MyPermissionsResponse> => {
-  const res =
-    await privetApi.get<MyPermissionsResponse>(`/rbac/my-permissions`);
+  const res = await privetApi.get<MyPermissionsResponse>(`/rbac/my-permissions`);
   const body = res.data as unknown;
   const payload =
     body && typeof body === "object" && "data" in (body as object)
@@ -152,31 +146,61 @@ export const getMyPermissions = async (): Promise<MyPermissionsResponse> => {
   };
 };
 
+// ─── Permission Modules APIs ──────────────────────────────────────────────────
 
+export const getAllPermissionModules = async (): Promise<PermissionModule[]> => {
+  const res = await privetApi.get<{ is_success: boolean; data: PermissionModule[] }>(
+    `/rbac/permission-modules`,
+  );
+  return res.data?.data ?? [];
+};
 
-export const MODULE_CONFIG: {
-  key: ModuleKey;
+export const createPermissionModule = async (payload: {
   label: string;
-}[] = [
-    { key: "campaign", label: "Campaigns" },
-    { key: "properties", label: "Properties" },
-    { key: "user_management", label: "User Management" },
-  ];
+}): Promise<PermissionModule> => {
+  const res = await privetApi.post<{
+    is_success: boolean;
+    message: string;
+    data: PermissionModule;
+  }>(`/rbac/permission-modules`, payload);
+  return res.data.data;
+};
 
-export const ACTION_CONFIG: {
-  key: ActionKey;
-  label: string;
-}[] = [{ key: "view", label: "View" },
-{ key: "add", label: "Add" },
+export const updatePermissionModule = async (
+  id: number,
+  payload: { label: string },
+): Promise<{ is_success: boolean; message: string; data: PermissionModule }> => {
+  const res = await privetApi.patch<{
+    is_success: boolean;
+    message: string;
+    data: PermissionModule;
+  }>(`/rbac/permission-modules/${id}`, payload);
+  return res.data;
+};
 
-{ key: "edit", label: "Edit" },
-{ key: "delete", label: "Delete" },
-  ];
+export const deletePermissionModule = async (id: number): Promise<{ is_success: boolean; message: string }> => {
+  const res = await privetApi.delete<{ is_success: boolean; message: string }>(`/rbac/permission-modules/${id}`);
+  return res.data;
+};
+
+// ─── Static module config ─────────────────────────────────────────────────────
+
+export const MODULE_CONFIG: { key: ModuleKey; label: string }[] = [
+  { key: "campaign", label: "Campaigns" },
+  { key: "properties", label: "Properties" },
+  { key: "user_management", label: "User Management" },
+];
+
+export const ACTION_CONFIG: { key: ActionKey; label: string }[] = [
+  { key: "view", label: "View" },
+  { key: "add", label: "Add" },
+  { key: "edit", label: "Edit" },
+  { key: "delete", label: "Delete" },
+];
 
 export const MODULE_KEYS = MODULE_CONFIG.map((m) => m.key);
 export const ACTION_KEYS = ACTION_CONFIG.map((a) => a.key);
 
-// API uses "properties" as canonical key. "property" is kept as a legacy alias.
 const API_KEY_NORMALISE: Record<string, ModuleKey> = {
   campaign: "campaign",
   properties: "properties",
@@ -184,53 +208,130 @@ const API_KEY_NORMALISE: Record<string, ModuleKey> = {
   user_management: "user_management",
 };
 
-const LOCAL_STORAGE_KEY = 'elite_dynamic_modules_v2';
+// ─── Dynamic module local cache (stores apiId for PATCH / DELETE) ─────────────
 
-export const getDynamicModules = (): { key: string; label: string }[] => {
-  if (typeof window !== 'undefined') {
-    try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (stored) return JSON.parse(stored);
-    } catch (e) { }
+const LOCAL_STORAGE_KEY = "elite_dynamic_modules_v2";
+
+interface StoredModule {
+  key: string;
+  label: string;
+  apiId: number; // id from POST /rbac/permission-modules response
+}
+
+export const getDynamicModules = (): StoredModule[] => {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+    return stored ? (JSON.parse(stored) as StoredModule[]) : [];
+  } catch {
+    return [];
   }
-  return [];
 };
 
-export const addDynamicModule = (key: string, label: string) => {
+
+export const saveDynamicModules = (modules: StoredModule[]): void => {
+  if (typeof window !== "undefined") {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(modules));
+  }
+};
+
+/**
+ * Seed local cache from GET /rbac/permission-modules.
+ * Call once on app boot (e.g. inside the component's initial useEffect).
+ * Merges API modules that are not yet in localStorage.
+ */
+export const syncPermissionModulesFromApi = async (): Promise<void> => {
+  try {
+    const apiModules = await getAllPermissionModules();
+    const current = getDynamicModules();
+    const staticKeys = new Set(MODULE_CONFIG.map((m) => m.key));
+
+    // ✅ Build fresh list from API — removes any deleted modules
+    const freshFromApi: StoredModule[] = apiModules
+  .map((apiMod) => {
+    const key = apiMod.label.toLowerCase().replace(/[\s_-]+/g, "_");
+    const existing = current.find((m) => m.apiId === apiMod.id);
+    return existing ?? { key, label: apiMod.label, apiId: apiMod.id };
+  });
+
+    // ✅ Overwrite localStorage with only what the API currently has
+    saveDynamicModules(freshFromApi);
+  } catch {
+    // silently fail — local cache remains as-is
+  }
+};
+
+/**
+ * POST /rbac/permission-modules → persist to local cache.
+ */
+export const addDynamicModule = async (
+  key: string,
+  label: string,
+): Promise<StoredModule> => {
   const current = getDynamicModules();
-  // Check if it already exists in static or dynamic
-  if (!MODULE_CONFIG.some(m => m.key === key) && !current.some(m => m.key === key)) {
-    const newModules = [...current, { key, label }];
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newModules));
-    }
-  }
+
+  // Only skip if already exists with a valid apiId from server
+  const existingWithApi = current.find((m) => m.key === key && m.apiId > 0);
+  if (existingWithApi) return existingWithApi;
+
+  // ✅ Always call API to create the module
+  const created = await createPermissionModule({ label });
+  const entry: StoredModule = {
+    key,
+    label: created.label,
+    apiId: created.id,
+  };
+
+  // Remove any stale local entry with same key before saving
+  const filtered = current.filter((m) => m.key !== key);
+  saveDynamicModules([...filtered, entry]);
+  
+  return entry;
 };
 
-export const removeDynamicModule = (key: string) => {
+/**
+ * DELETE /rbac/permission-modules/{id} → remove from local cache.
+ */
+export const removeDynamicModule = async (key: string): Promise<void> => {
   const current = getDynamicModules();
-  const newModules = current.filter(m => m.key !== key);
-  if (current.length !== newModules.length && typeof window !== 'undefined') {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newModules));
+  const target = current.find((m) => m.key === key);
+
+  if (target?.apiId) {
+    await deletePermissionModule(target.apiId);
   }
+
+  saveDynamicModules(current.filter((m) => m.key !== key));
 };
 
-export const updateDynamicModule = (key: string, label: string) => {
+/**
+ * PATCH /rbac/permission-modules/{id} → update label in local cache.
+ */
+export const updateDynamicModule = async (
+  key: string,
+  label: string,
+): Promise<void> => {
   const current = getDynamicModules();
-  const index = current.findIndex(m => m.key === key);
-  if (index !== -1 && typeof window !== 'undefined') {
-    current[index].label = label;
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(current));
+  const index = current.findIndex((m) => m.key === key);
+  if (index === -1) return;
+
+  const target = current[index];
+  if (target.apiId) {
+    await updatePermissionModule(target.apiId, { label });
   }
+
+  current[index] = { ...target, label };
+  saveDynamicModules([...current]);
 };
 
-export const getActiveModuleConfig = () => {
-  return [...MODULE_CONFIG, ...getDynamicModules()];
+export const getActiveModuleConfig = (): { key: string; label: string }[] => {
+  return getDynamicModules().map(({ key, label }) => ({ key, label }));
 };
 
-export const getActiveModuleKeys = () => {
+export const getActiveModuleKeys = (): string[] => {
   return getActiveModuleConfig().map((m) => m.key);
 };
+
+// ─── Matrix helpers ───────────────────────────────────────────────────────────
 
 export function mapPermissionsToMatrix(
   permissionEntries: RbacRole["permissions"],
@@ -238,10 +339,7 @@ export function mapPermissionsToMatrix(
   const keys = getActiveModuleKeys();
   const matrix = keys.reduce((acc, mod) => {
     acc[mod] = ACTION_KEYS.reduce(
-      (a, act) => {
-        a[act] = false;
-        return a;
-      },
+      (a, act) => { a[act] = false; return a; },
       {} as Record<ActionKey, boolean>,
     );
     return acc;
@@ -252,30 +350,21 @@ export function mapPermissionsToMatrix(
   (Object.keys(permMap) as string[]).forEach((rawKey) => {
     const mod = API_KEY_NORMALISE[rawKey] || rawKey;
     if (!matrix[mod]) return;
-
     const modulePerms = permMap[rawKey as keyof typeof permMap];
     if (!modulePerms) return;
-
     (Object.keys(modulePerms) as ActionKey[]).forEach((act) => {
-      if (act in matrix[mod]) {
-        matrix[mod][act] = modulePerms[act] ?? false;
-      }
+      if (act in matrix[mod]) matrix[mod][act] = modulePerms[act] ?? false;
     });
   });
 
   return matrix;
 }
 
-export function mapMatrixToPermissionsMap(
-  matrix: PermissionsMatrix,
-): PermissionsMap {
+export function mapMatrixToPermissionsMap(matrix: PermissionsMatrix): PermissionsMap {
   const keys = getActiveModuleKeys();
   return keys.reduce((acc, mod) => {
     acc[mod] = ACTION_KEYS.reduce(
-      (a, act) => {
-        a[act] = matrix[mod]?.[act] ?? false;
-        return a;
-      },
+      (a, act) => { a[act] = matrix[mod]?.[act] ?? false; return a; },
       {} as Record<ActionKey, boolean>,
     );
     return acc;

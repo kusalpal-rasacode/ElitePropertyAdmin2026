@@ -69,4 +69,10 @@ export interface MyPermissionsResponse {
   permissions: PermissionsMap;
 }
 
+export interface PermissionModule {
+  id: number;
+  label: string;
+  created_at: string;
+}
+
 export type PermissionsMatrix = Record<ModuleKey, Record<ActionKey, boolean>>;

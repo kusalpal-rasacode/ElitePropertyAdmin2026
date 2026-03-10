@@ -49,6 +49,11 @@ import {
   addDynamicModule,
   removeDynamicModule,
   updateDynamicModule,
+  syncPermissionModulesFromApi,
+  deletePermissionModule ,
+  getDynamicModules,
+  saveDynamicModules,
+  updatePermissionModule
 } from "@/services/rbac.service";
 import type {
   RbacRole,
@@ -61,12 +66,7 @@ import { ConfirmModal } from "@/components/common/ConfirmModal";
 // ============================================================
 // Icon map per module key
 // ============================================================
-const MODULE_ICONS: Record<ModuleKey, React.ReactNode> = {
-  campaign: <MdCampaign size={20} />,
-  properties: <MdBusiness size={20} />,
-  user_management: <MdManageAccounts size={20} />,
-};
-
+const MODULE_ICONS: Partial<Record<string, React.ReactNode>> = {};
 const DYNAMIC_ICONS = [
   MdExtension,
   MdDashboard,
@@ -191,36 +191,75 @@ export default function PermissionsPage() {
     setActiveModules(getActiveModuleConfig());
   }, []);
 
-  const handleAddModule = () => {
-    if (!newModuleLabel.trim()) return;
-    const key = newModuleLabel.trim().toLowerCase().replace(/[\s_-]+/g, "_");
-    addDynamicModule(key, newModuleLabel.trim());
-    setActiveModules(getActiveModuleConfig());
-
+  const handleAddModule = async () => {
+  if (!newModuleLabel.trim()) return;
+  const key = newModuleLabel.trim().toLowerCase().replace(/[\s_-]+/g, "_");
+  try {
+    await addDynamicModule(key, newModuleLabel.trim());
+    
+    // ✅ Re-sync from API to get the latest modules including the new one
+    await syncPermissionModulesFromApi();
+    
+    // ✅ Now read updated modules from localStorage
+    const updatedModules = getActiveModuleConfig();
+    setActiveModules(updatedModules);
+    
+    // ✅ Initialize permissions for the new module
     setPermissions((prev) => {
-      const newPerms = { ...prev };
-      if (!newPerms[key]) {
-        newPerms[key] = ACTION_CONFIG.reduce((acc, a) => ({ ...acc, [a.key]: false }), {} as any);
-      }
-      return newPerms;
+      if (prev[key]) return prev;
+      return {
+        ...prev,
+        [key]: ACTION_CONFIG.reduce(
+          (acc, a) => ({ ...acc, [a.key]: false }),
+          {} as any
+        ),
+      };
     });
 
     setNewModuleLabel("");
     setIsAddingModule(false);
-  };
+    showSuccessToast("Module added successfully.");
+  } catch (err: any) {
+    showErrorToast(err?.response?.data?.message ?? "Failed to add module.");
+  }
+};
+
+const confirmRemoveModule = async () => {
+  if (!moduleToDelete) return;
+  try {
+    const storedModules = getDynamicModules();
+    const target = storedModules.find((m) => m.key === moduleToDelete.key);
+
+    if (!target?.apiId) {
+      showErrorToast("Module ID not found. Cannot delete.");
+      return;
+    }
+
+    // ✅ Call API directly — don't use removeDynamicModule (it calls API again)
+    const response = await deletePermissionModule(target.apiId);
+
+    if (response?.is_success) {
+      // ✅ Remove from localStorage manually
+      const current = getDynamicModules();
+      saveDynamicModules(current.filter((m) => m.key !== moduleToDelete.key));
+
+      // ✅ Update UI immediately
+      setActiveModules(getActiveModuleConfig());
+      showSuccessToast(response.message || `"${moduleToDelete.label}" deleted successfully.`);
+    } else {
+      showErrorToast("Failed to delete module.");
+    }
+  } catch (err: any) {
+    showErrorToast(err?.response?.data?.message ?? "Failed to delete module.");
+  } finally {
+    setIsDeleteModalOpen(false);
+    setModuleToDelete(null);
+  }
+};
 
   const handleRemoveModuleClick = (keyToRemove: string, label: string) => {
     setModuleToDelete({ key: keyToRemove, label });
     setIsDeleteModalOpen(true);
-  };
-
-  const confirmRemoveModule = () => {
-    if (moduleToDelete) {
-      removeDynamicModule(moduleToDelete.key);
-      setActiveModules(getActiveModuleConfig());
-    }
-    setIsDeleteModalOpen(false);
-    setModuleToDelete(null);
   };
 
   const handleEditModuleStart = (key: string, currentLabel: string) => {
@@ -228,13 +267,45 @@ export default function PermissionsPage() {
     setEditingModuleLabel(currentLabel);
   };
 
-  const handleEditModuleSave = () => {
-    if (!editingModuleKey || !editingModuleLabel.trim()) return;
-    updateDynamicModule(editingModuleKey, editingModuleLabel.trim());
-    setActiveModules(getActiveModuleConfig());
+  const handleEditModuleSave = async () => {
+  if (!editingModuleKey || !editingModuleLabel.trim()) return;
+  try {
+    const storedModules = getDynamicModules();
+    const target = storedModules.find((m) => m.key === editingModuleKey);
+
+    if (!target?.apiId) {
+      showErrorToast("Module ID not found. Cannot update.");
+      return;
+    }
+
+    // ✅ Call API directly
+    const response = await updatePermissionModule(target.apiId, {
+      label: editingModuleLabel.trim(),
+    });
+
+    if (response?.is_success) {
+      // ✅ Update localStorage manually
+      const current = getDynamicModules();
+      const updated = current.map((m) =>
+        m.key === editingModuleKey
+          ? { ...m, label: editingModuleLabel.trim() }
+          : m
+      );
+      saveDynamicModules(updated);
+
+      // ✅ Refresh UI immediately
+      setActiveModules(getActiveModuleConfig());
+      showSuccessToast(response.message || "Module updated successfully.");
+    } else {
+      showErrorToast("Failed to update module.");
+    }
+  } catch (err: any) {
+    showErrorToast(err?.response?.data?.message ?? "Failed to update module.");
+  } finally {
     setEditingModuleKey(null);
     setEditingModuleLabel("");
-  };
+  }
+};
 
   const handleEditModuleCancel = () => {
     setEditingModuleKey(null);
@@ -245,33 +316,31 @@ export default function PermissionsPage() {
   const isSuperAdmin = isSuperAdminRole(selectedRole);
 
   // ---- load all roles on mount ----------------------------
-  useEffect(() => {
-    (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getAllRoles();
-        setRoles(data);
+useEffect(() => {
+  (async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Seed dynamic modules from API first, then load roles
+      await syncPermissionModulesFromApi();
+      setActiveModules(getActiveModuleConfig());
 
-        if (data.length > 0) {
-          const first = data[0];
-          // API uses nested permissions array — pass it to mapper
-          const matrix = mapPermissionsToMatrix(first.permissions);
-          setSelectedRole(first);
-          setPermissions(matrix);
-          setOriginalMatrix(matrix);
-        }
-      } catch (err: any) {
-        setError(
-          err?.response?.data?.message ??
-          err?.message ??
-          "Failed to load roles.",
-        );
-      } finally {
-        setLoading(false);
+      const data = await getAllRoles();
+      setRoles(data);
+      if (data.length > 0) {
+        const first = data[0];
+        const matrix = mapPermissionsToMatrix(first.permissions);
+        setSelectedRole(first);
+        setPermissions(matrix);
+        setOriginalMatrix(matrix);
       }
-    })();
-  }, []);
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? err?.message ?? "Failed to load roles.");
+    } finally {
+      setLoading(false);
+    }
+  })();
+}, []);
 
   // ---- when dropdown changes, fetch fresh role by ID ------
   const handleRoleChange = useCallback(
@@ -339,7 +408,7 @@ export default function PermissionsPage() {
   const handleSave = async () => {
     console.log(selectedRole);
 
-    if (!selectedRole || isSuperAdmin) return;
+    if (!selectedRole) return;
     setSaving(true);
     setSaveMsg(null);
     setError(null);
@@ -409,7 +478,7 @@ export default function PermissionsPage() {
 
           <button
             onClick={handleSave}
-            disabled={saving || isSuperAdmin || loading}
+            disabled={saving || loading}
             className="px-5 py-2 text-white rounded-lg shadow-sm hover:brightness-110 transition-all font-bold flex items-center gap-2 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
             style={{ backgroundColor: currentTheme.primary }}
           >
@@ -594,7 +663,7 @@ export default function PermissionsPage() {
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-3">
                             <span style={{ color: currentTheme.textColor }}>
-                              {MODULE_ICONS[module.key as ModuleKey] || getDynamicIcon(module.key)}
+                             {getDynamicIcon(module.key)}
                             </span>
 
                             {editingModuleKey === module.key ? (
@@ -635,7 +704,7 @@ export default function PermissionsPage() {
                                 >
                                   {module.label}
                                 </p>
-                                {!MODULE_CONFIG.some((m) => m.key === module.key) && (
+                                
                                   <div className="ml-auto flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button
                                       onClick={() => handleEditModuleStart(module.key, module.label)}
@@ -652,7 +721,7 @@ export default function PermissionsPage() {
                                       <MdDeleteOutline size={18} />
                                     </button>
                                   </div>
-                                )}
+                                
                               </>
                             )}
                           </div>

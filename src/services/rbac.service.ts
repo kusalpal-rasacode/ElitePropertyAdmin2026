@@ -169,17 +169,18 @@ export const createPermissionModule = async (payload: {
 export const updatePermissionModule = async (
   id: number,
   payload: { label: string },
-): Promise<PermissionModule> => {
+): Promise<{ is_success: boolean; message: string; data: PermissionModule }> => {
   const res = await privetApi.patch<{
     is_success: boolean;
     message: string;
     data: PermissionModule;
   }>(`/rbac/permission-modules/${id}`, payload);
-  return res.data.data;
+  return res.data;
 };
 
-export const deletePermissionModule = async (id: number): Promise<void> => {
-  await privetApi.delete(`/rbac/permission-modules/${id}`);
+export const deletePermissionModule = async (id: number): Promise<{ is_success: boolean; message: string }> => {
+  const res = await privetApi.delete<{ is_success: boolean; message: string }>(`/rbac/permission-modules/${id}`);
+  return res.data;
 };
 
 // ─── Static module config ─────────────────────────────────────────────────────
@@ -227,7 +228,8 @@ export const getDynamicModules = (): StoredModule[] => {
   }
 };
 
-const saveDynamicModules = (modules: StoredModule[]): void => {
+
+export const saveDynamicModules = (modules: StoredModule[]): void => {
   if (typeof window !== "undefined") {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(modules));
   }
@@ -244,18 +246,16 @@ export const syncPermissionModulesFromApi = async (): Promise<void> => {
     const current = getDynamicModules();
     const staticKeys = new Set(MODULE_CONFIG.map((m) => m.key));
 
-    const merged = [...current];
+    // ✅ Build fresh list from API — removes any deleted modules
+    const freshFromApi: StoredModule[] = apiModules
+  .map((apiMod) => {
+    const key = apiMod.label.toLowerCase().replace(/[\s_-]+/g, "_");
+    const existing = current.find((m) => m.apiId === apiMod.id);
+    return existing ?? { key, label: apiMod.label, apiId: apiMod.id };
+  });
 
-    for (const apiMod of apiModules) {
-      const key = apiMod.label.toLowerCase().replace(/[\s_-]+/g, "_");
-      if (staticKeys.has(key)) continue; // skip static modules
-      const exists = merged.some((m) => m.apiId === apiMod.id);
-      if (!exists) {
-        merged.push({ key, label: apiMod.label, apiId: apiMod.id });
-      }
-    }
-
-    saveDynamicModules(merged);
+    // ✅ Overwrite localStorage with only what the API currently has
+    saveDynamicModules(freshFromApi);
   } catch {
     // silently fail — local cache remains as-is
   }
@@ -269,20 +269,23 @@ export const addDynamicModule = async (
   label: string,
 ): Promise<StoredModule> => {
   const current = getDynamicModules();
-  const alreadyLocal = current.some((m) => m.key === key);
-  const alreadyStatic = MODULE_CONFIG.some((m) => m.key === key);
 
-  if (alreadyLocal || alreadyStatic) {
-    return current.find((m) => m.key === key) ?? { key, label, apiId: 0 };
-  }
+  // Only skip if already exists with a valid apiId from server
+  const existingWithApi = current.find((m) => m.key === key && m.apiId > 0);
+  if (existingWithApi) return existingWithApi;
 
+  // ✅ Always call API to create the module
   const created = await createPermissionModule({ label });
   const entry: StoredModule = {
     key,
     label: created.label,
     apiId: created.id,
   };
-  saveDynamicModules([...current, entry]);
+
+  // Remove any stale local entry with same key before saving
+  const filtered = current.filter((m) => m.key !== key);
+  saveDynamicModules([...filtered, entry]);
+  
   return entry;
 };
 
@@ -321,10 +324,7 @@ export const updateDynamicModule = async (
 };
 
 export const getActiveModuleConfig = (): { key: string; label: string }[] => {
-  return [
-    ...MODULE_CONFIG,
-    ...getDynamicModules().map(({ key, label }) => ({ key, label })),
-  ];
+  return getDynamicModules().map(({ key, label }) => ({ key, label }));
 };
 
 export const getActiveModuleKeys = (): string[] => {

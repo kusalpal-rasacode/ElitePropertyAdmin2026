@@ -31,9 +31,18 @@ const normalizePermissionsMap = (raw: unknown): PermissionsMap => {
   if (!raw || typeof raw !== "object") return {};
   const source = raw as Record<string, unknown>;
   const keys = getActiveModuleKeys();
+
   return keys.reduce((acc, mod) => {
-    const modulePerms = source[mod];
+    // ✅ Case-insensitive match — find the key in API response
+    const matchedKey = Object.keys(source).find(
+      (k) =>
+        k.toLowerCase().replace(/[\s_-]+/g, "_") ===
+        mod.toLowerCase().replace(/[\s_-]+/g, "_"),
+    );
+
+    const modulePerms = matchedKey ? source[matchedKey] : undefined;
     if (!modulePerms || typeof modulePerms !== "object") return acc;
+
     const moduleRecord = modulePerms as Record<string, unknown>;
     acc[mod] = ACTION_KEYS.reduce((actionAcc, act) => {
       actionAcc[act] = Boolean(moduleRecord[act]);
@@ -178,8 +187,12 @@ export const updatePermissionModule = async (
   return res.data;
 };
 
-export const deletePermissionModule = async (id: number): Promise<{ is_success: boolean; message: string }> => {
-  const res = await privetApi.delete<{ is_success: boolean; message: string }>(`/rbac/permission-modules/${id}`);
+export const deletePermissionModule = async (
+  id: number,
+): Promise<{ is_success: boolean; message: string }> => {
+  const res = await privetApi.delete<{ is_success: boolean; message: string }>(
+    `/rbac/permission-modules/${id}`,
+  );
   return res.data;
 };
 
@@ -201,13 +214,6 @@ export const ACTION_CONFIG: { key: ActionKey; label: string }[] = [
 export const MODULE_KEYS = MODULE_CONFIG.map((m) => m.key);
 export const ACTION_KEYS = ACTION_CONFIG.map((a) => a.key);
 
-const API_KEY_NORMALISE: Record<string, ModuleKey> = {
-  campaign: "campaign",
-  properties: "properties",
-  property: "properties",
-  user_management: "user_management",
-};
-
 // ─── Dynamic module local cache (stores apiId for PATCH / DELETE) ─────────────
 
 const LOCAL_STORAGE_KEY = "elite_dynamic_modules_v2";
@@ -215,7 +221,7 @@ const LOCAL_STORAGE_KEY = "elite_dynamic_modules_v2";
 interface StoredModule {
   key: string;
   label: string;
-  apiId: number; // id from POST /rbac/permission-modules response
+  apiId: number;
 }
 
 export const getDynamicModules = (): StoredModule[] => {
@@ -228,7 +234,6 @@ export const getDynamicModules = (): StoredModule[] => {
   }
 };
 
-
 export const saveDynamicModules = (modules: StoredModule[]): void => {
   if (typeof window !== "undefined") {
     localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(modules));
@@ -237,22 +242,20 @@ export const saveDynamicModules = (modules: StoredModule[]): void => {
 
 /**
  * Seed local cache from GET /rbac/permission-modules.
- * Call once on app boot (e.g. inside the component's initial useEffect).
- * Merges API modules that are not yet in localStorage.
  */
 export const syncPermissionModulesFromApi = async (): Promise<void> => {
   try {
     const apiModules = await getAllPermissionModules();
     const current = getDynamicModules();
-    const staticKeys = new Set(MODULE_CONFIG.map((m) => m.key));
 
     // ✅ Build fresh list from API — removes any deleted modules
-    const freshFromApi: StoredModule[] = apiModules
-  .map((apiMod) => {
-    const key = apiMod.label.toLowerCase().replace(/[\s_-]+/g, "_");
-    const existing = current.find((m) => m.apiId === apiMod.id);
-    return existing ?? { key, label: apiMod.label, apiId: apiMod.id };
-  });
+    const freshFromApi: StoredModule[] = apiModules.map((apiMod) => {
+      // ✅ Always normalize key to lowercase_underscore
+      const key = apiMod.label.toLowerCase().replace(/[\s_-]+/g, "_");
+      const existing = current.find((m) => m.apiId === apiMod.id);
+      // Preserve existing key if found, but always use normalized key for new
+      return existing ?? { key, label: apiMod.label, apiId: apiMod.id };
+    });
 
     // ✅ Overwrite localStorage with only what the API currently has
     saveDynamicModules(freshFromApi);
@@ -276,16 +279,19 @@ export const addDynamicModule = async (
 
   // ✅ Always call API to create the module
   const created = await createPermissionModule({ label });
+
+  // ✅ Always normalize key to lowercase_underscore
+  const normalizedKey = created.label.toLowerCase().replace(/[\s_-]+/g, "_");
   const entry: StoredModule = {
-    key,
+    key: normalizedKey,
     label: created.label,
     apiId: created.id,
   };
 
   // Remove any stale local entry with same key before saving
-  const filtered = current.filter((m) => m.key !== key);
+  const filtered = current.filter((m) => m.key !== normalizedKey);
   saveDynamicModules([...filtered, entry]);
-  
+
   return entry;
 };
 
@@ -294,12 +300,6 @@ export const addDynamicModule = async (
  */
 export const removeDynamicModule = async (key: string): Promise<void> => {
   const current = getDynamicModules();
-  const target = current.find((m) => m.key === key);
-
-  if (target?.apiId) {
-    await deletePermissionModule(target.apiId);
-  }
-
   saveDynamicModules(current.filter((m) => m.key !== key));
 };
 
@@ -309,18 +309,23 @@ export const removeDynamicModule = async (key: string): Promise<void> => {
 export const updateDynamicModule = async (
   key: string,
   label: string,
-): Promise<void> => {
+): Promise<{ is_success: boolean; message: string }> => {
   const current = getDynamicModules();
   const index = current.findIndex((m) => m.key === key);
-  if (index === -1) return;
+  if (index === -1) throw new Error("Module not found in local cache.");
 
   const target = current[index];
-  if (target.apiId) {
-    await updatePermissionModule(target.apiId, { label });
+  if (!target.apiId) throw new Error("Module API ID not found.");
+
+  // ✅ Call API and return response
+  const response = await updatePermissionModule(target.apiId, { label });
+
+  if (response?.is_success) {
+    current[index] = { ...target, label };
+    saveDynamicModules([...current]);
   }
 
-  current[index] = { ...target, label };
-  saveDynamicModules([...current]);
+  return response;
 };
 
 export const getActiveModuleConfig = (): { key: string; label: string }[] => {
@@ -337,18 +342,30 @@ export function mapPermissionsToMatrix(
   permissionEntries: RbacRole["permissions"],
 ): PermissionsMatrix {
   const keys = getActiveModuleKeys();
-  const matrix = keys.reduce((acc, mod) => {
-    acc[mod] = ACTION_KEYS.reduce(
-      (a, act) => { a[act] = false; return a; },
-      {} as Record<ActionKey, boolean>,
-    );
-    return acc;
-  }, {} as PermissionsMatrix);
+  const matrix = keys.reduce(
+    (acc, mod) => {
+      acc[mod] = ACTION_KEYS.reduce(
+        (a, act) => {
+          a[act] = false;
+          return a;
+        },
+        {} as Record<ActionKey, boolean>,
+      );
+      return acc;
+    },
+    {} as PermissionsMatrix,
+  );
 
   const permMap = extractPermissionsMap(permissionEntries);
 
   (Object.keys(permMap) as string[]).forEach((rawKey) => {
-    const mod = API_KEY_NORMALISE[rawKey] || rawKey;
+    // ✅ Normalize rawKey to match our stored module keys (case-insensitive)
+    const normalizedRaw = rawKey.toLowerCase().replace(/[\s_-]+/g, "_");
+    const mod =
+      getActiveModuleKeys().find(
+        (k) => k.toLowerCase().replace(/[\s_-]+/g, "_") === normalizedRaw,
+      ) || normalizedRaw;
+
     if (!matrix[mod]) return;
     const modulePerms = permMap[rawKey as keyof typeof permMap];
     if (!modulePerms) return;
@@ -362,11 +379,17 @@ export function mapPermissionsToMatrix(
 
 export function mapMatrixToPermissionsMap(matrix: PermissionsMatrix): PermissionsMap {
   const keys = getActiveModuleKeys();
-  return keys.reduce((acc, mod) => {
-    acc[mod] = ACTION_KEYS.reduce(
-      (a, act) => { a[act] = matrix[mod]?.[act] ?? false; return a; },
-      {} as Record<ActionKey, boolean>,
-    );
-    return acc;
-  }, {} as PermissionsMap);
+  return keys.reduce(
+    (acc, mod) => {
+      acc[mod] = ACTION_KEYS.reduce(
+        (a, act) => {
+          a[act] = matrix[mod]?.[act] ?? false;
+          return a;
+        },
+        {} as Record<ActionKey, boolean>,
+      );
+      return acc;
+    },
+    {} as PermissionsMap,
+  );
 }

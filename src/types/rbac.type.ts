@@ -76,3 +76,14 @@ export interface PermissionModule {
 }
 
 export type PermissionsMatrix = Record<ModuleKey, Record<ActionKey, boolean>>;
+
+
+export interface ActiveModule {
+  key: string;
+  label: string;
+}
+
+export interface ModuleToDelete {
+  key: string;
+  label: string;
+}

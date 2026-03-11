@@ -152,3 +152,18 @@ export interface PropertiesResponse {
     data: PropertyData[];
     pagination: Pagination;
 }
+export type ActiveTab = "all" | "pending";
+export type PendingStatus = "pending" | "approved" | "rejected";
+export type PendingAction = "approve" | "reject" | "activate" | "deactivate";
+
+
+export interface PropertyFilters {
+    searchQuery: string;
+    filterStatus: string;
+    filterListingType: string;
+    filterPropertyType: string;
+    minPrice: string;
+    maxPrice: string;
+    beds: string;
+    baths: string;
+}

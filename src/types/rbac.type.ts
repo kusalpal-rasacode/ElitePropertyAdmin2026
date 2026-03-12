@@ -71,6 +71,7 @@ export interface MyPermissionsResponse {
 
 export interface PermissionModule {
   id: number;
+  name?: string;
   label: string;
   created_at: string;
 }

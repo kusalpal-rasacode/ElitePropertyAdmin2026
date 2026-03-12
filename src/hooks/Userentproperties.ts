@@ -17,6 +17,9 @@ import {
 } from "@/services/rentals.service";
 import { getRentalImageCandidates, mapRentalToPropertyData } from "@/utils/rentalMapper";
 import { showSuccessToast, showErrorToast } from "@/utils/toast";
+import { useUrlSync } from "@/hooks/useUrlSync";
+import { useListingActions } from "@/hooks/useListingActions";
+import { useDeleteConfirm } from "@/hooks/useDeleteConfirm";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -76,6 +79,7 @@ export function useRentProperties() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { permissionReady, can } = useModulePermission("properties");
+  const { syncToUrl } = useUrlSync();
 
   const canViewProperties = can("view");
   const canAddProperties = can("add");
@@ -99,13 +103,13 @@ export function useRentProperties() {
   );
 
   const [pagination, setPagination] = useState({
-    page: Number(searchParams.get("page")) || 1,
-    limit: Number(searchParams.get("limit")) || 9,
+    page:  1,
+    limit:  9,
     total: 0,
     totalPages: 1,
   });
 
-  // Filters
+  // ─── Filters ─────────────────────────────────────────────────────────────
   const [filterStatus, setFilterStatus] = useState(searchParams.get("status") || "All");
   const [filterPropertyType, setFilterPropertyType] = useState(searchParams.get("property_type") || "All");
   const [minPrice, setMinPrice] = useState(searchParams.get("min_price") || "");
@@ -117,22 +121,12 @@ export function useRentProperties() {
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [showFilters, setShowFilters] = useState(false);
 
-  // UI State
+  // ─── UI State ─────────────────────────────────────────────────────────────
   const [activeMenuId, setActiveMenuId] = useState<number | string | null>(null);
   const [imageOverrides, setImageOverrides] = useState<Record<string, string>>({});
   const [creatorOverrides, setCreatorOverrides] = useState<Record<string, CreatorPreview>>({});
   const [listingImageFailures, setListingImageFailures] = useState<Record<string, boolean>>({});
   const hydratedRentalIdsRef = useRef<Set<string>>(new Set());
-
-  // Delete state
-  const [deleteId, setDeleteId] = useState<string | number | null>(null);
-  const [isDeleteLoading, setIsDeleteLoading] = useState(false);
-
-  // Approve / Reject Modal state
-  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
-  const [pendingAction, setPendingAction] = useState<"approve" | "reject" | null>(null);
-  const [pendingPropertyId, setPendingPropertyId] = useState<number | string | null>(null);
-  const [actionLoading, setActionLoading] = useState(false);
 
   const isRejectedPendingList = activeTab === "pending" && pendingStatus === "rejected";
 
@@ -142,78 +136,146 @@ export function useRentProperties() {
     if (isOrganizationUser && activeTab !== "all") setActiveTab("all");
   }, [isOrganizationUser, activeTab]);
 
-  // ── URL sync ────────────────────────────────────────────────────────────────
-
-  const syncToUrl = useCallback(
-    (overrides: Record<string, string | number> = {}) => {
-      const params = new URLSearchParams();
-      const current = {
-        tab: activeTab, pending_status: pendingStatus, page: pagination.page,
-        limit: pagination.limit, search: searchQuery, status: filterStatus,
-        property_type: filterPropertyType, min_price: minPrice, max_price: maxPrice,
-        bedrooms: beds, bathrooms: baths, pets_allowed: petsAllowed, furnished,
-        ...overrides,
-      };
-
-      if (current.tab && current.tab !== "all") params.set("tab", String(current.tab));
-      if (activeTab === "pending" && current.pending_status && current.pending_status !== "pending")
-        params.set("pending_status", String(current.pending_status));
-      if (current.search) params.set("search", String(current.search));
-      if (current.status && current.status !== "All") params.set("status", String(current.status));
-      if (current.property_type && current.property_type !== "All") params.set("property_type", String(current.property_type));
-      if (current.min_price) params.set("min_price", String(current.min_price));
-      if (current.max_price) params.set("max_price", String(current.max_price));
-      if (current.bedrooms) params.set("bedrooms", String(current.bedrooms));
-      if (current.bathrooms) params.set("bathrooms", String(current.bathrooms));
-      if (current.pets_allowed && current.pets_allowed !== "All") params.set("pets_allowed", String(current.pets_allowed));
-      if (current.furnished && current.furnished !== "All") params.set("furnished", String(current.furnished));
-      params.set("page", String(current.page || 1));
-      params.set("limit", String(current.limit || 9));
-
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  // ─── Delete ───────────────────────────────────────────────────────────────
+  const {
+    deleteId,
+    isDeleteLoading,
+    initiateDelete: _initiateDelete,
+    cancelDelete,
+    confirmDelete,
+  } = useDeleteConfirm({
+    onDelete: async (id) => {
+      await deleteRentalService(id);
+      setProperties((prev) => prev.filter((p) => p.id !== id));
+      setPagination((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }));
+      setRefreshKey((prev) => prev + 1);
     },
-    [activeTab, pendingStatus, pagination.page, pagination.limit, searchQuery, filterStatus,
-      filterPropertyType, minPrice, maxPrice, beds, baths, petsAllowed, furnished, pathname, router],
+    successMessage: "Property deleted successfully",
+    errorMessage: "Failed to delete property",
+  });
+
+  const initiateDelete = (id: number | string) => {
+    if (!canDeleteProperties) return;
+    _initiateDelete(id);
+    setActiveMenuId(null);
+  };
+
+  // ─── Action Modal ─────────────────────────────────────────────────────────
+  const {
+    isActionModalOpen,
+    pendingAction,
+    pendingItemId: pendingPropertyId,
+    actionLoading,
+    onApproveClick: _onApproveClick,
+    onRejectClick: _onRejectClick,
+    closeModal,
+    handleConfirmAction,
+  } = useListingActions({
+    onAction: async (type, id, reason) => {
+      if (type === "approve") await approveRentalService(id);
+      else if (type === "reject") await rejectRentalService(id, reason);
+    },
+    onSuccess: () => setRefreshKey((prev) => prev + 1),
+  });
+
+  const onApproveClick = (id: number | string) => {
+    if (!canEditProperties) return;
+    _onApproveClick(id);
+    setActiveMenuId(null);
+  };
+
+  const onRejectClick = (id: number | string) => {
+    if (!canEditProperties) return;
+    _onRejectClick(id);
+    setActiveMenuId(null);
+  };
+
+  // ─── URL Sync helper ──────────────────────────────────────────────────────
+  const pushToUrl = useCallback(
+    (overrides: Record<string, string | number> = {}) => {
+      syncToUrl(
+        {
+          tab: activeTab,
+          pending_status: pendingStatus,
+          page: pagination.page,
+          limit: pagination.limit,
+          search: searchQuery,
+          status: filterStatus,
+          property_type: filterPropertyType,
+          min_price: minPrice,
+          max_price: maxPrice,
+          bedrooms: beds,
+          bathrooms: baths,
+          pets_allowed: petsAllowed,
+          furnished,
+          ...overrides,
+        },
+        {
+          omitDefaults: {
+            tab: "all",
+            pending_status: "pending",
+            status: "All",
+            property_type: "All",
+            pets_allowed: "All",
+            furnished: "All",
+          },
+          always: ["page", "limit"],
+        }
+      );
+    },
+    [
+      activeTab, pendingStatus, pagination.page, pagination.limit,
+      searchQuery, filterStatus, filterPropertyType, minPrice, maxPrice,
+      beds, baths, petsAllowed, furnished, syncToUrl,
+    ]
   );
 
-  useEffect(() => { if (mounted) syncToUrl(); }, [mounted]);
+  useEffect(() => { if (mounted) pushToUrl(); }, [mounted]);
   useEffect(() => {
     if (!mounted) return;
-    syncToUrl();
-  }, [activeTab, pendingStatus, pagination.page, searchQuery, filterStatus, filterPropertyType,
-    minPrice, maxPrice, beds, baths, petsAllowed, furnished]);
+    pushToUrl();
+  }, [
+    activeTab, pendingStatus, pagination.page, searchQuery, filterStatus,
+    filterPropertyType, minPrice, maxPrice, beds, baths, petsAllowed, furnished,
+  ]);
 
-  // ── Fetch ────────────────────────────────────────────────────────────────────
-
+  // ─── Fetch ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!permissionReady) return;
-    if (!canViewProperties) { setAllProperties([]); setProperties([]); setLoading(false); return; }
+    if (!canViewProperties) {
+      setAllProperties([]);
+      setProperties([]);
+      setLoading(false);
+      return;
+    }
 
     let isCurrentRequest = true;
 
     const fetchProperties = async () => {
-      setLoading(true); setError(null);
+      setLoading(true);
+      setError(null);
       try {
         const response = activeTab === "pending"
-          ? await getPendingRentals({ page: pagination.page, limit: pagination.limit, status: pendingStatus, ...(searchQuery ? { search: searchQuery } : {}) })
-          : filterStatus === "All"
-            ? await Promise.all([
-              getRentals({ page: pagination.page, limit: pagination.limit, status: "active" }),
-              getRentals({ page: pagination.page, limit: pagination.limit, status: "inactive" }),
-            ]).then(([a, b]) => ({
-              data: [...(a.data || []), ...(b.data || [])],
-              pagination: {
-                total: (a.pagination?.total || 0) + (b.pagination?.total || 0),
-                page: pagination.page, limit: pagination.limit,
-                totalPages: Math.ceil(((a.pagination?.total || 0) + (b.pagination?.total || 0)) / pagination.limit),
-              },
-            }))
-            : await getRentals({ page: pagination.page, limit: pagination.limit, status: filterStatus.toLowerCase() as "active" | "inactive" });
+          ? await getPendingRentals({
+              page: pagination.page,
+              limit: pagination.limit,
+              status: pendingStatus,
+              ...(searchQuery ? { search: searchQuery } : {}),
+            })
+          : await getRentals({
+              page: pagination.page,
+              limit: pagination.limit,
+              ...(filterStatus !== "All" && {
+                status: filterStatus.toLowerCase() as "active" | "inactive",
+              }),
+            });
 
         if (!isCurrentRequest) return;
 
         const rawList = response.data || [];
-        const mappedList = rawList.map((item) => mapRentalToPropertyData(item as Record<string, unknown>));
+        const mappedList = rawList.map((item) =>
+          mapRentalToPropertyData(item as Record<string, unknown>)
+        );
 
         const creatorSeed: Record<string, CreatorPreview> = {};
         rawList.forEach((item, index) => {
@@ -245,16 +307,17 @@ export function useRentProperties() {
 
     fetchProperties();
     return () => { isCurrentRequest = false; };
-  }, [activeTab, pendingStatus, filterStatus, refreshKey, permissionReady, canViewProperties,
-    isOrganizationUser, pagination.page, pagination.limit, searchQuery]);
+  }, [
+    activeTab, pendingStatus, filterStatus, refreshKey,
+    permissionReady, canViewProperties,
+    pagination.page, pagination.limit, searchQuery,
+  ]);
 
-  // ── Filter locally ────────────────────────────────────────────────────────────
-
+  // ─── Local filter ─────────────────────────────────────────────────────────
   useEffect(() => {
     try {
       const filtered = allProperties.filter((property) => {
         const effectivePrice = property.rent_price || property.listing_price || 0;
-        const status = property.status || "Active";
         const listingType = property.transaction_type || property.listing_type || "Rent";
         const propType = property.property_type || "Single-Family";
         const title = property.street_address || "Untitled Property";
@@ -262,27 +325,30 @@ export function useRentProperties() {
         const isPending = activeTab === "pending";
 
         return (
-          (isPending || filterStatus === "All" || status === filterStatus) &&
           (isPending || listingType === "Rent" || listingType === "Both") &&
           (isPending || filterPropertyType === "All" || propType === filterPropertyType) &&
-          (title.toLowerCase().includes(searchQuery.toLowerCase()) || location.toLowerCase().includes(searchQuery.toLowerCase())) &&
+          (title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            location.toLowerCase().includes(searchQuery.toLowerCase())) &&
           (isPending || minPrice === "" || effectivePrice >= parseInt(minPrice)) &&
           (isPending || maxPrice === "" || effectivePrice <= parseInt(maxPrice)) &&
           (isPending || beds === "" || (property.bedrooms || 0) >= parseInt(beds)) &&
           (isPending || baths === "" || (property.bathrooms || 0) >= parseInt(baths)) &&
-          (isPending || petsAllowed === "All" || (petsAllowed === "Yes" ? property.pets_allowed === true : property.pets_allowed === false)) &&
-          (isPending || furnished === "All" || (furnished === "Yes" ? property.is_furnished === true : property.is_furnished === false))
+          (isPending || petsAllowed === "All" ||
+            (petsAllowed === "Yes" ? property.pets_allowed === true : property.pets_allowed === false)) &&
+          (isPending || furnished === "All" ||
+            (furnished === "Yes" ? property.is_furnished === true : property.is_furnished === false))
         );
       });
       setProperties(filtered);
     } catch (err) {
       console.error("Failed to filter properties", err);
     }
-  }, [allProperties, pagination.page, searchQuery, activeTab, filterStatus, filterPropertyType,
-    minPrice, maxPrice, beds, baths, petsAllowed, furnished, refreshKey]);
+  }, [
+    allProperties, pagination.page, searchQuery, activeTab, filterStatus,
+    filterPropertyType, minPrice, maxPrice, beds, baths, petsAllowed, furnished, refreshKey,
+  ]);
 
-  // ── Image / creator hydration ──────────────────────────────────────────────
-
+  // ─── Image / creator hydration ────────────────────────────────────────────
   useEffect(() => {
     const hydrateMissingImages = async () => {
       const targets = properties
@@ -319,76 +385,16 @@ export function useRentProperties() {
     hydrateMissingImages();
   }, [properties]);
 
-  // ── Actions ──────────────────────────────────────────────────────────────────
-
-  const handleSetActiveTab = (tab: "all" | "pending") => {
-    setActiveTab(tab);
+  // ─── Actions ──────────────────────────────────────────────────────────────
+  const handleSetActiveTab = (tab: string) => {
+    setActiveTab(tab as "all" | "pending");
     setPagination((p) => ({ ...p, page: 1 }));
-    syncToUrl({ tab, page: 1 });
+    pushToUrl({ tab, page: 1 });
   };
 
   const handleSetPage = (page: number) => {
     setPagination((p) => ({ ...p, page }));
-    syncToUrl({ page });
-  };
-
-  const onApproveClick = (id: number | string) => {
-    if (!canEditProperties) return;
-    setPendingPropertyId(id);
-    setPendingAction("approve");
-    setIsActionModalOpen(true);
-    setActiveMenuId(null);
-  };
-
-  const onRejectClick = (id: number | string) => {
-    if (!canEditProperties) return;
-    setPendingPropertyId(id);
-    setPendingAction("reject");
-    setIsActionModalOpen(true);
-    setActiveMenuId(null);
-  };
-
-  const handleConfirmAction = async (reason?: string) => {
-    if (!pendingPropertyId || !pendingAction || !canEditProperties) return;
-    setActionLoading(true);
-    try {
-      if (pendingAction === "approve") {
-        await approveRentalService(pendingPropertyId);
-        showSuccessToast("Property approved successfully!");
-      } else {
-        await rejectRentalService(pendingPropertyId, reason);
-        showSuccessToast("Property rejected successfully!");
-      }
-      setRefreshKey((prev) => prev + 1);
-    } catch (err: unknown) {
-      showErrorToast(getErrorMessage(err, `Failed to ${pendingAction} property.`));
-    } finally {
-      setActionLoading(false);
-      setIsActionModalOpen(false);
-      setPendingAction(null);
-      setPendingPropertyId(null);
-    }
-  };
-
-  const initiateDelete = (id: number | string) => {
-    if (!canDeleteProperties) return;
-    setDeleteId(id);
-    setActiveMenuId(null);
-  };
-
-  const confirmDelete = () => {
-    if (!deleteId || !canDeleteProperties) return;
-    setIsDeleteLoading(true);
-    deleteRentalService(deleteId)
-      .then(() => {
-        setProperties((prev) => prev.filter((p) => p.id !== deleteId));
-        setPagination((prev) => ({ ...prev, total: Math.max(0, prev.total - 1) }));
-        setDeleteId(null);
-        showSuccessToast("Property deleted successfully");
-        setRefreshKey((prev) => prev + 1);
-      })
-      .catch((err: unknown) => showErrorToast(getErrorMessage(err, "Failed to delete property.")))
-      .finally(() => setIsDeleteLoading(false));
+    pushToUrl({ page });
   };
 
   const handleToggleRentalStatus = async (property: PropertyData) => {
@@ -409,9 +415,16 @@ export function useRentProperties() {
   };
 
   const resetFilters = () => {
-    setFilterStatus("All"); setFilterPropertyType("All"); setMinPrice(""); setMaxPrice("");
-    setBeds(""); setBaths(""); setPetsAllowed("All"); setFurnished("All");
-    setSearchQuery(""); setPagination((prev) => ({ ...prev, page: 1 }));
+    setFilterStatus("All");
+    setFilterPropertyType("All");
+    setMinPrice("");
+    setMaxPrice("");
+    setBeds("");
+    setBaths("");
+    setPetsAllowed("All");
+    setFurnished("All");
+    setSearchQuery("");
+    setPagination((prev) => ({ ...prev, page: 1 }));
     router.replace(pathname, { scroll: false });
   };
 
@@ -426,26 +439,47 @@ export function useRentProperties() {
     // Auth / permissions
     mounted, canViewProperties, canAddProperties, canEditProperties, canDeleteProperties,
     isOrganizationUser, permissionReady,
+
     // Data
     properties, loading, error,
+
     // Pagination
     pagination, handleSetPage,
+
     // Tabs
     activeTab, handleSetActiveTab, pendingStatus, setPendingStatus, isRejectedPendingList,
+
     // Filters
-    showFilters, setShowFilters, searchQuery, setSearchQuery, filterStatus, setFilterStatus,
-    filterPropertyType, setFilterPropertyType, minPrice, setMinPrice, maxPrice, setMaxPrice,
-    beds, setBeds, baths, setBaths, petsAllowed, setPetsAllowed, furnished, setFurnished,
+    showFilters, setShowFilters, searchQuery, setSearchQuery,
+    filterStatus, setFilterStatus, filterPropertyType, setFilterPropertyType,
+    minPrice, setMinPrice, maxPrice, setMaxPrice,
+    beds, setBeds, baths, setBaths,
+    petsAllowed, setPetsAllowed, furnished, setFurnished,
     resetFilters,
+
     // Image / creator
     creatorOverrides, listingImageFailures, setListingImageFailures, getListingImage,
+
     // Menu
     activeMenuId, setActiveMenuId,
+
     // Delete
-    deleteId, setDeleteId, isDeleteLoading, initiateDelete, confirmDelete,
+    deleteId,
+    isDeleteLoading,
+    initiateDelete,
+    cancelDelete,
+    confirmDelete,
+
     // Approve / Reject
-    isActionModalOpen, setIsActionModalOpen, pendingAction, pendingPropertyId,
-    actionLoading, onApproveClick, onRejectClick, handleConfirmAction,
+    isActionModalOpen,
+    setIsActionModalOpen: closeModal,
+    pendingAction,
+    pendingPropertyId,
+    actionLoading,
+    onApproveClick,
+    onRejectClick,
+    handleConfirmAction,
+
     // Toggle status
     handleToggleRentalStatus,
   };

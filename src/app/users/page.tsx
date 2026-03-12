@@ -27,8 +27,8 @@ import {
 } from "@/types/users.type";
 import { toast } from "react-hot-toast";
 import { useModulePermission } from "@/hooks/useModulePermission";
-
-const LIMIT = 10;
+import { Pagination } from "@/components/common/Pagination";
+const LIMIT = 5;
 
 export default function UsersPage() {
   const { currentTheme } = useTheme();
@@ -520,86 +520,16 @@ export default function UsersPage() {
 
       {/* Pagination */}
       {!loading && filteredUsers.length > LIMIT && (
-        <div
-          className="flex flex-col sm:flex-row justify-between items-center gap-4 py-6 border-t mt-8"
-          style={{ borderColor: currentTheme.borderColor }}
-        >
-          {/* Showing X to Y of Z */}
-          <div
-            className="text-sm opacity-70"
-            style={{ color: currentTheme.textColor }}
-          >
-            Showing <span className="font-bold">{currentStart}</span> to{" "}
-            <span className="font-bold">{currentEnd}</span> of{" "}
-            <span className="font-bold">{filteredUsers.length}</span> entries
-          </div>
-
-          {/* Page buttons */}
-          <div className="flex items-center gap-1">
-            {/* Prev */}
-            <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="p-2 rounded-lg border hover:bg-black/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              style={{
-                borderColor: currentTheme.borderColor,
-                color: currentTheme.headingColor,
-              }}
-            >
-              <MdChevronLeft size={20} />
-            </button>
-
-            {/* Page numbers */}
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              let pageNum: number;
-              if (totalPages <= 5) {
-                pageNum = i + 1;
-              } else if (currentPage <= 3) {
-                pageNum = i + 1;
-              } else if (currentPage >= totalPages - 2) {
-                pageNum = totalPages - 4 + i;
-              } else {
-                pageNum = currentPage - 2 + i;
-              }
-
-              return (
-                <button
-                  key={pageNum}
-                  onClick={() => setCurrentPage(pageNum)}
-                  className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-bold transition-all ${
-                    currentPage === pageNum
-                      ? "text-white shadow-md transform scale-105"
-                      : "hover:bg-black/5"
-                  }`}
-                  style={{
-                    backgroundColor:
-                      currentPage === pageNum
-                        ? currentTheme.primary
-                        : "transparent",
-                    color:
-                      currentPage === pageNum ? "#fff" : currentTheme.textColor,
-                  }}
-                >
-                  {pageNum}
-                </button>
-              );
-            })}
-
-            {/* Next */}
-            <button
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages}
-              className="p-2 rounded-lg border hover:bg-black/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-              style={{
-                borderColor: currentTheme.borderColor,
-                color: currentTheme.headingColor,
-              }}
-            >
-              <MdChevronRight size={20} />
-            </button>
-          </div>
-        </div>
-      )}
+  <Pagination
+    pagination={{
+      page: currentPage,
+      limit: LIMIT,
+      total: filteredUsers.length,
+      totalPages: totalPages,
+    }}
+    onPageChange={setCurrentPage}
+  />
+)}
 
       <ConfirmModal
         isOpen={canDeleteUsers && !!deleteTargetId}

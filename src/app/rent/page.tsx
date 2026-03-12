@@ -3,12 +3,11 @@ import React from "react";
 import { MdSearch } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
-
+import { Pagination } from "@/components/common/Pagination";
 import { useRentProperties } from "@/hooks/Userentproperties";
-import { RentPageHeader } from "@/components/rent/Rentpageheader";
 import { RentFilterPanel } from "@/components/rent/Rentfilterpanel";
 import { RentPropertyCard } from "@/components/rent/Rentpropertycard";
-import { RentPagination } from "@/components/rent/Rentpagination";
+import { ListingPageHeader } from "@/components/common/ListingPageHeader";
 
 function RentPropertiesContent() {
   const { currentTheme } = useTheme();
@@ -32,7 +31,7 @@ function RentPropertiesContent() {
       {/* Delete confirmation modal */}
       <ConfirmModal
         isOpen={state.canDeleteProperties && !!state.deleteId}
-        onClose={() => !state.isDeleteLoading && state.setDeleteId(null)}
+        onClose={() => !state.isDeleteLoading && state.deleteId === null}
         onConfirm={state.confirmDelete}
         title="Delete Rent"
         message="Are you sure you want to delete this rent listing? This action cannot be undone."
@@ -41,17 +40,25 @@ function RentPropertiesContent() {
       />
 
       {/* Header */}
-      <RentPageHeader
-        activeTab={state.activeTab}
-        showFilters={state.showFilters}
-        searchQuery={state.searchQuery}
-        canAddProperties={state.canAddProperties}
-        isOrganizationUser={state.isOrganizationUser}
-        mounted={state.mounted}
-        onTabChange={state.handleSetActiveTab}
-        onSearchChange={state.setSearchQuery}
-        onToggleFilters={() => state.setShowFilters(!state.showFilters)}
-      />
+      <ListingPageHeader
+  title="For Rent Listings"
+  subtitle="Manage your rental listings."
+  tabs={!state.isOrganizationUser ? [
+    { value: "all", label: "Active Listings" },
+    { value: "pending", label: "Pending Approval" },
+  ] : []}
+  activeTab={state.activeTab}
+  onTabChange={state.handleSetActiveTab}
+  searchQuery={state.searchQuery}
+  searchPlaceholder="Search rentals..."
+  onSearchChange={state.setSearchQuery}
+  showFilters={state.showFilters}
+  onToggleFilters={() => state.setShowFilters((p) => !p)}
+  addLabel="Add Rent"
+  addHref="/rent/add"
+  canAdd={state.canAddProperties}
+  mounted={state.mounted}
+/>
 
       {/* Filter panel */}
       {state.showFilters && (
@@ -152,19 +159,13 @@ function RentPropertiesContent() {
 
       {/* Pagination */}
       {state.properties.length > 0 && (
-        <RentPagination
-          page={state.pagination.page}
-          limit={state.pagination.limit}
-          total={state.pagination.total}
-          totalPages={state.pagination.totalPages}
-          onPageChange={state.handleSetPage}
-        />
+        <Pagination pagination={state.pagination} onPageChange={state.handleSetPage} entryLabel="results" />
       )}
 
       {/* Approve / Reject modal */}
       <ConfirmModal
         isOpen={state.isActionModalOpen}
-        onClose={() => state.setIsActionModalOpen(false)}
+        onClose={() => state.setIsActionModalOpen}
         onConfirm={state.handleConfirmAction}
         title={state.pendingAction === "approve" ? "Approve Property" : "Reject Property"}
         message={`Are you sure you want to ${state.pendingAction} this property?`}

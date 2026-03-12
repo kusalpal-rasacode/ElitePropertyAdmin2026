@@ -3,15 +3,18 @@ import React from "react";
 import { useTheme } from "@/providers/ThemeProvider";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { useProperties } from "@/hooks/Useproperties";
-import { PropertiesHeader } from "@/components/properties/Propertiesheader";
 import { PropertiesFilterPanel } from "@/components/properties/Propertiesfilterpanel";
 import { PropertiesGrid } from "@/components/properties/Propertiesgrid";
-import { PropertiesPagination } from "@/components/properties/PropertiesPagination";
+import { Pagination } from "@/components/common/Pagination";
 import { PropertiesActionModal } from "@/components/properties/Propertiesactionmodal";
-
+import { ListingPageHeader } from "@/components/common/ListingPageHeader";
 function PropertiesContent() {
     const { currentTheme } = useTheme();
     const p = useProperties();
+    const tabs = [
+  { value: "all", label: "Active Listings" },
+  ...(p.isSuperAdmin ? [{ value: "pending", label: "Pending Approval" }] : []),
+];
 
     // ─── Permission guard ─────────────────────────────────────────────────────
     if (!p.loading && p.permissionReady && !p.canViewProperties) {
@@ -32,7 +35,7 @@ function PropertiesContent() {
             {/* Delete confirmation */}
             <ConfirmModal
                 isOpen={p.canDeleteProperties && !!p.deleteId}
-                onClose={() => !p.isDeleteLoading && p.setDeleteId(null)}
+                onClose={() => !p.isDeleteLoading && p.deleteId === null}
                 onConfirm={p.confirmDelete}
                 title="Delete Property"
                 message="Are you sure you want to delete this property? This action cannot be undone."
@@ -41,17 +44,22 @@ function PropertiesContent() {
             />
 
             {/* Header */}
-            <PropertiesHeader
-                activeTab={p.activeTab}
-                searchQuery={p.filters.searchQuery}
-                showFilters={p.showFilters}
-                mounted={p.mounted}
-                canAddProperties={p.canAddProperties}
-                isSuperAdmin={p.isSuperAdmin}
-                onTabChange={p.handleSetActiveTab}
-                onSearchChange={(v) => p.handleFilterChange("searchQuery", v)}
-                onToggleFilters={() => p.setShowFilters(!p.showFilters)}
-            />
+            <ListingPageHeader
+  title="Property Listings"
+  subtitle="Manage all properties displayed on the user site."
+  tabs={tabs}
+  activeTab={p.activeTab}
+  onTabChange={p.handleSetActiveTab}
+  searchQuery={p.filters.searchQuery}
+  searchPlaceholder="Search properties..."
+  onSearchChange={(v) => p.handleFilterChange("searchQuery", v)}
+  showFilters={p.showFilters}
+  onToggleFilters={() => p.setShowFilters((p) => !p)}
+  addLabel="Add Property"
+  addHref="/properties/add"
+  canAdd={p.canAddProperties}
+  mounted={p.mounted}
+/>
 
             {/* Filter panel */}
             {p.showFilters && (
@@ -95,10 +103,7 @@ function PropertiesContent() {
 
             {/* Pagination */}
             {!p.loading && !p.error && p.properties.length > 0 && (
-                <PropertiesPagination
-                    pagination={p.pagination}
-                    onPageChange={p.handleSetPage}
-                />
+                <Pagination pagination={p.pagination} onPageChange={p.handleSetPage} />
             )}
 
             {/* Action modal (approve / reject / activate / deactivate) */}
@@ -106,7 +111,7 @@ function PropertiesContent() {
                 isOpen={p.isActionModalOpen}
                 pendingAction={p.pendingAction}
                 isLoading={p.actionLoading}
-                onClose={() => p.setIsActionModalOpen(false)}
+                onClose={p.setIsActionModalOpen}
                 onConfirm={p.handleConfirmAction}
             />
         </div>

@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React,{useState, useEffect} from "react";
 import { MdAdd, MdSearch, MdMoreHoriz, MdCampaign, MdCheckCircle, MdPauseCircle, MdSchedule, MdBarChart, MdEdit, MdPlayArrow, MdDelete, MdChevronLeft, MdChevronRight } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
 
@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { getCampaignsService, deleteCampaignService, updateCampaignService } from "@/services/campaigns.service";
 import { useModulePermission } from "@/hooks/useModulePermission";
-
+import { Pagination } from "@/components/common/Pagination";
 export default function CampaignsPage() {
     const { currentTheme } = useTheme();
     const router = useRouter();
@@ -15,6 +15,7 @@ export default function CampaignsPage() {
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
     const [searchTerm, setSearchTerm] = React.useState("");
+const [mounted, setMounted] = useState(false);
 
     const [activeMenuId, setActiveMenuId] = React.useState<number | null>(null);
     const [deleteId, setDeleteId] = React.useState<number | null>(null);
@@ -24,6 +25,10 @@ export default function CampaignsPage() {
     const canAddCampaign = can("add");
     const canEditCampaign = can("edit");
     const canDeleteCampaign = can("delete");
+    
+useEffect(() => {
+    setMounted(true);
+}, []);
 
     // Fetch Campaigns
     const fetchCampaigns = async () => {
@@ -179,16 +184,16 @@ export default function CampaignsPage() {
                             }}
                         />
                     </div>
-                    {canAddCampaign && (
-                        <button
-                            onClick={() => router.push('/campaigns/add')}
-                            className="px-5 py-2.5 text-white rounded-lg shadow-sm hover:brightness-110 transition-all font-bold text-sm flex items-center gap-2"
-                            style={{ backgroundColor: currentTheme.primary }}
-                        >
-                            <MdAdd size={20} />
-                            Create Campaign
-                        </button>
-                    )}
+                    {mounted && canAddCampaign && (
+    <button
+        onClick={() => router.push('/campaigns/add')}
+        className="px-5 py-2.5 text-white rounded-lg shadow-sm hover:brightness-110 transition-all font-bold text-sm flex items-center gap-2"
+        style={{ backgroundColor: currentTheme.primary }}
+    >
+        <MdAdd size={20} />
+        Create Campaign
+    </button>
+)}
                 </div>
             </div>
 
@@ -344,81 +349,17 @@ export default function CampaignsPage() {
             </div>
 
             {/* Pagination Controls */}
-            {totalPages > 1 && (
-                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 py-6 border-t mt-8" style={{ borderColor: currentTheme.borderColor }}>
-
-                    <div className="text-sm opacity-70" style={{ color: currentTheme.textColor }}>
-                        Showing <span className="font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-bold">{Math.min(currentPage * itemsPerPage, filteredCampaigns.length)}</span> of <span className="font-bold">{filteredCampaigns.length}</span> entries
-                    </div>
-
-                    <div className="flex items-center gap-1">
-                        <button
-                            onClick={() => handlePageChange(currentPage - 1)}
-                            disabled={currentPage === 1}
-                            className="p-2 rounded-lg border hover:bg-black/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                            style={{
-                                borderColor: currentTheme.borderColor,
-                                color: currentTheme.headingColor
-                            }}
-                        >
-                            <MdChevronLeft size={20} />
-                        </button>
-
-                        {/* Page Numbers Logic */}
-                        {(() => {
-                            let startPage = 1;
-                            let endPage = totalPages;
-
-                            if (totalPages > 5) {
-                                if (currentPage <= 3) {
-                                    startPage = 1;
-                                    endPage = 5;
-                                } else if (currentPage >= totalPages - 2) {
-                                    startPage = totalPages - 4;
-                                    endPage = totalPages;
-                                } else {
-                                    startPage = currentPage - 2;
-                                    endPage = currentPage + 2;
-                                }
-                            }
-
-                            const pages = [];
-                            for (let i = startPage; i <= endPage; i++) {
-                                pages.push(i);
-                            }
-
-                            return pages.map((pageNum) => (
-                                <button
-                                    key={pageNum}
-                                    onClick={() => handlePageChange(pageNum)}
-                                    className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-bold transition-all ${currentPage === pageNum
-                                        ? 'text-white shadow-md transform scale-105'
-                                        : 'hover:bg-black/5'
-                                        }`}
-                                    style={{
-                                        backgroundColor: currentPage === pageNum ? currentTheme.primary : 'transparent',
-                                        color: currentPage === pageNum ? '#fff' : currentTheme.textColor
-                                    }}
-                                >
-                                    {pageNum}
-                                </button>
-                            ));
-                        })()}
-
-                        <button
-                            onClick={() => handlePageChange(currentPage + 1)}
-                            disabled={currentPage === totalPages}
-                            className="p-2 rounded-lg border hover:bg-black/5 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
-                            style={{
-                                borderColor: currentTheme.borderColor,
-                                color: currentTheme.headingColor
-                            }}
-                        >
-                            <MdChevronRight size={20} />
-                        </button>
-                    </div>
-                </div>
-            )}
+           {totalPages > 1 && (
+    <Pagination
+        pagination={{
+            page: currentPage,
+            limit: itemsPerPage,
+            total: filteredCampaigns.length,
+            totalPages: totalPages,
+        }}
+        onPageChange={handlePageChange}
+    />
+)}
 
             <ConfirmModal
                 isOpen={canDeleteCampaign && !!deleteId}

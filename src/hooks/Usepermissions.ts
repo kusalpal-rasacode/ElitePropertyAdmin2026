@@ -11,8 +11,9 @@ import {
   deletePermissionModule,
   getDynamicModules,
   saveDynamicModules,
-  updatePermissionModule,
+  updateDynamicModule,
   syncPermissionModulesFromApi,
+  normalizeModuleKey,
 } from "@/services/rbac.service";
 import type { RbacRole, PermissionsMatrix, ModuleKey, ActionKey } from "@/types/rbac.type";
 import { showSuccessToast, showErrorToast } from "@/utils/toast";
@@ -138,9 +139,9 @@ export function usePermissions() {
   // ---- module management ----------------------------------
   const handleAddModule = async () => {
     if (!newModuleLabel.trim()) return;
-    const key = newModuleLabel.trim().toLowerCase().replace(/[\s_-]+/g, "_");
+    const key = normalizeModuleKey(newModuleLabel);
     try {
-      await addDynamicModule(key, newModuleLabel.trim());
+      await addDynamicModule(newModuleLabel.trim());
       await syncPermissionModulesFromApi();
 
       setActiveModules(getActiveModuleConfig());
@@ -211,9 +212,7 @@ export function usePermissions() {
         return;
       }
 
-      const response = await updatePermissionModule(target.apiId, {
-        label: editingModuleLabel.trim(),
-      });
+      const response = await updateDynamicModule(editingModuleKey, editingModuleLabel.trim());
 
       if (response?.is_success) {
         const current = getDynamicModules();

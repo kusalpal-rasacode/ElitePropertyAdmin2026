@@ -13,6 +13,9 @@ import type {
 
 type RawPermissions = PermissionsMap | { permissions?: PermissionsMap } | null | undefined;
 
+export const normalizeModuleKey = (value: string): string =>
+  String(value).trim().toLowerCase().replace(/\s+/g, "_");
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const toRoleArray = (payload: unknown): unknown[] => {
@@ -36,8 +39,8 @@ const normalizePermissionsMap = (raw: unknown): PermissionsMap => {
     // ✅ Case-insensitive match — find the key in API response
     const matchedKey = Object.keys(source).find(
       (k) =>
-        k.toLowerCase().replace(/[\s_-]+/g, "_") ===
-        mod.toLowerCase().replace(/[\s_-]+/g, "_"),
+        normalizeModuleKey(k).replace(/_+/g, "_") ===
+        normalizeModuleKey(mod).replace(/_+/g, "_"),
     );
 
     const modulePerms = matchedKey ? source[matchedKey] : undefined;
@@ -248,13 +251,11 @@ export const syncPermissionModulesFromApi = async (): Promise<void> => {
     const apiModules = await getAllPermissionModules();
     const current = getDynamicModules();
 
-    // ✅ Build fresh list from API — removes any deleted modules
     const freshFromApi: StoredModule[] = apiModules.map((apiMod) => {
-      // ✅ Always normalize key to lowercase_underscore
-      const key = apiMod.label.toLowerCase().replace(/[\s_-]+/g, "_");
+      const key = normalizeModuleKey(apiMod.name ?? apiMod.label);
       const existing = current.find((m) => m.apiId === apiMod.id);
-      // Preserve existing key if found, but always use normalized key for new
-      return existing ?? { key, label: apiMod.label, apiId: apiMod.id };
+      // Keep previously entered label for UI display if available.
+      return existing ?? { key, label: apiMod.label ?? apiMod.name ?? key, apiId: apiMod.id };
     });
 
     // ✅ Overwrite localStorage with only what the API currently has
@@ -267,24 +268,23 @@ export const syncPermissionModulesFromApi = async (): Promise<void> => {
 /**
  * POST /rbac/permission-modules → persist to local cache.
  */
-export const addDynamicModule = async (
-  key: string,
-  label: string,
-): Promise<StoredModule> => {
+export const addDynamicModule = async (label: string): Promise<StoredModule> => {
   const current = getDynamicModules();
+  const displayLabel = label.trim();
+  const normalizedInputKey = normalizeModuleKey(displayLabel);
 
   // Only skip if already exists with a valid apiId from server
-  const existingWithApi = current.find((m) => m.key === key && m.apiId > 0);
+  const existingWithApi = current.find((m) => m.key === normalizedInputKey && m.apiId > 0);
   if (existingWithApi) return existingWithApi;
 
   // ✅ Always call API to create the module
-  const created = await createPermissionModule({ label });
+  const created = await createPermissionModule({ label: normalizedInputKey });
 
-  // ✅ Always normalize key to lowercase_underscore
-  const normalizedKey = created.label.toLowerCase().replace(/[\s_-]+/g, "_");
+  const normalizedKey = normalizeModuleKey(created.name ?? created.label ?? label);
   const entry: StoredModule = {
     key: normalizedKey,
-    label: created.label,
+    // Keep UI display exactly as user typed.
+    label: displayLabel,
     apiId: created.id,
   };
 
@@ -318,7 +318,7 @@ export const updateDynamicModule = async (
   if (!target.apiId) throw new Error("Module API ID not found.");
 
   // ✅ Call API and return response
-  const response = await updatePermissionModule(target.apiId, { label });
+  const response = await updatePermissionModule(target.apiId, { label: normalizeModuleKey(label) });
 
   if (response?.is_success) {
     current[index] = { ...target, label };
@@ -359,11 +359,11 @@ export function mapPermissionsToMatrix(
   const permMap = extractPermissionsMap(permissionEntries);
 
   (Object.keys(permMap) as string[]).forEach((rawKey) => {
-    // ✅ Normalize rawKey to match our stored module keys (case-insensitive)
-    const normalizedRaw = rawKey.toLowerCase().replace(/[\s_-]+/g, "_");
+    // Normalize rawKey to match our stored module keys (case-insensitive)
+    const normalizedRaw = normalizeModuleKey(rawKey).replace(/_+/g, "_");
     const mod =
       getActiveModuleKeys().find(
-        (k) => k.toLowerCase().replace(/[\s_-]+/g, "_") === normalizedRaw,
+        (k) => normalizeModuleKey(k).replace(/_+/g, "_") === normalizedRaw,
       ) || normalizedRaw;
 
     if (!matrix[mod]) return;

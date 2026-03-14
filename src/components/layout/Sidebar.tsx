@@ -45,7 +45,7 @@ const NAV_ITEMS: NavItem[] = [
   { name: "Dashboard", icon: <MdDashboard />, path: "/dashboard", alwaysShow: true },
   { name: "Organizations", icon: <MdBusiness />, path: "/organizations", superAdminOnly: true },
   { name: "Properties", icon: <MdApartment />, path: "/properties", permission: "properties" },
-  { name: "Rentals", icon: <MdApartment />, path: "/rent", permission: "properties" },
+  { name: "Rentals", icon: <MdApartment />, path: "/rent", permission: "rent" },
   { name: "Users & Agents", icon: <MdPeople />, path: "/users", permission: "user_management" },
   { name: "Campaigns", icon: <MdCampaign />, path: "/campaigns", permission: "campaign" },
   { name: "Access Roles", icon: <MdKey />, path: "/roles", superAdminOnly: true },

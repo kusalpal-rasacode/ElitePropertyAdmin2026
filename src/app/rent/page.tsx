@@ -10,17 +10,18 @@ import { RentPropertyCard } from "@/components/rent/Rentpropertycard";
 import { ListingPageHeader } from "@/components/common/ListingPageHeader";
 
 function RentPropertiesContent() {
+   
   const { currentTheme } = useTheme();
   const state = useRentProperties();
 
-  if (!state.loading && state.permissionReady && !state.canViewProperties) {
+  if (!state.loading && !state.permissionReady && !state.canViewRentals) {
     return (
       <div className="max-w-[1600px] mx-auto py-10">
         <div
           className="rounded-xl border px-5 py-4 text-sm font-medium"
           style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}
         >
-          You do not have `view` permission for Properties.
+          You do not have `view` permission for Rentals.
         </div>
       </div>
     );
@@ -30,7 +31,7 @@ function RentPropertiesContent() {
     <div className="max-w-[1600px] mx-auto space-y-6 pb-20">
       {/* Delete confirmation modal */}
       <ConfirmModal
-        isOpen={state.canDeleteProperties && !!state.deleteId}
+        isOpen={state.canDeleteRentals && !!state.deleteId}
         onClose={() => !state.isDeleteLoading && state.deleteId === null}
         onConfirm={state.confirmDelete}
         title="Delete Rent"
@@ -56,7 +57,7 @@ function RentPropertiesContent() {
   onToggleFilters={() => state.setShowFilters((p) => !p)}
   addLabel="Add Rent"
   addHref="/rent/add"
-  canAdd={state.canAddProperties}
+  canAdd={state.canAddRentals}
   mounted={state.mounted}
 />
 
@@ -116,9 +117,9 @@ function RentPropertiesContent() {
                 property={property}
                 activeTab={state.activeTab}
                 isRejectedPendingList={state.isRejectedPendingList}
-                canViewProperties={state.canViewProperties}
-                canEditProperties={state.canEditProperties}
-                canDeleteProperties={state.canDeleteProperties}
+                canViewRentals={state.canViewRentals}
+                canEditRentals={state.canEditRentals}
+                canDeleteRentals={state.canDeleteRentals}
                 creatorInfo={creatorInfo}
                 listingImage={listingImage}
                 listingImageFailed={!!state.listingImageFailures[listingImageKey]}

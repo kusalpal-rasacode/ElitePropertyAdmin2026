@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { MdOutlineBedroomParent, MdOutlineBathroom, MdSquareFoot, MdLocationOn, MdArrowBack, MdCheck, MdClose, MdConstruction, MdGarage, MdOutlineLocalParking, MdCalendarToday, MdLandscape, MdHouse, MdCheckCircle, MdMonetizationOn, MdBuild } from "react-icons/md";
+import { MdOutlineBedroomParent, MdOutlineBathroom, MdSquareFoot, MdLocationOn, MdArrowBack, MdCheck, MdClose, MdConstruction, MdCalendarToday, MdCheckCircle, MdMonetizationOn, MdBuild } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -10,12 +10,18 @@ import { PropertyData } from "@/types/properties.types";
 import { showSuccessToast, showErrorToast } from "@/utils/toast";
 import { ConfirmModal } from "@/components/common/ConfirmModal"; // IMPORT CONFIRM MODAL
 
+type InvestmentSummaryItem = {
+    label: string;
+    value: number;
+};
+
 export default function ReviewPropertyPage() {
     const { currentTheme } = useTheme();
     const params = useParams(); // To get property ID from URL
     const router = useRouter();
     const searchParams = useSearchParams();
     const source = searchParams.get('source'); // Check if coming from pending list
+    const propertyId = Array.isArray(params.id) ? params.id[0] : params.id;
 
     const [property, setProperty] = useState<PropertyData | null>(null);
     const [loading, setLoading] = useState(true);
@@ -30,41 +36,28 @@ export default function ReviewPropertyPage() {
 
     useEffect(() => {
         const fetchProperty = async () => {
-            if (!params.id) return;
+            if (!propertyId) return;
             setLoading(true);
+            setError(null);
 
             try {
-                let data;
-                let isPending = false;
+                const isPending = source === 'pending';
+                const data = isPending
+                    ? await getPendingPropertyByIdService(propertyId)
+                    : await getPropertyByIdService(propertyId);
 
-                // Priority based on source param, but fallback logic ensures finding provided ID
-                if (source === 'pending') {
-                    try {
-                        data = await getPendingPropertyByIdService(params.id as string);
-                        isPending = true;
-                    } catch (err) {
-                        console.warn("Failed to fetch as pending, trying active...", err);
-                        data = await getPropertyByIdService(params.id as string);
-                        isPending = false;
-                    }
-                } else {
-                    try {
-                        data = await getPropertyByIdService(params.id as string);
-                        isPending = false;
-                    } catch (err) {
-                        console.warn("Failed to fetch as active, trying pending...", err);
-                        data = await getPendingPropertyByIdService(params.id as string);
-                        isPending = true;
-                    }
+                if (!data) {
+                    setProperty(null);
+                    setSelectedImage(null);
+                    setIsPendingProperty(isPending);
+                    setError("Property not found.");
+                    return;
                 }
 
                 setProperty(data);
                 setIsPendingProperty(isPending);
-
-                if (data && data.images && data.images.length > 0) {
-                    setSelectedImage(data.images[0]);
-                }
-            } catch (err: any) {
+                setSelectedImage(data.images?.[0] ?? null);
+            } catch (err: unknown) {
                 console.error("Failed to fetch property details:", err);
                 setError("Failed to load property details. Please try again.");
             } finally {
@@ -73,7 +66,7 @@ export default function ReviewPropertyPage() {
         };
 
         fetchProperty();
-    }, [params.id, source]);
+    }, [propertyId, source]);
 
     // Open Modal for Approve
     const handleApproveClick = () => {
@@ -139,6 +132,12 @@ export default function ReviewPropertyPage() {
     const displayImage = selectedImage || (property.images && property.images.length > 0
         ? property.images[0]
         : "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=1000");
+    const investmentSummaryItems: InvestmentSummaryItem[] = [
+        property.arv !== undefined ? { label: "After Repair Value", value: property.arv } : null,
+        property.repair_estimate !== undefined ? { label: "Est. Repair Costs", value: property.repair_estimate } : null,
+        property.holding_costs !== undefined ? { label: "Holding Costs", value: property.holding_costs } : null,
+        property.assignment_fee !== undefined ? { label: "Assignment Fee", value: property.assignment_fee } : null,
+    ].filter((item): item is InvestmentSummaryItem => item !== null);
 
     return (
         <div className="mx-auto space-y-8 pb-20">
@@ -353,7 +352,7 @@ export default function ReviewPropertyPage() {
                         )}
 
                         {/* Financials - Dynamic Primary Color Card */}
-                        {(property.arv !== undefined || property.repair_estimate !== undefined || property.holding_costs !== undefined || property.assignment_fee !== undefined) && (
+                        {investmentSummaryItems.length > 0 && (
                             <div className="relative overflow-hidden rounded-3xl shadow-lg p-8"
                                 style={{ backgroundColor: currentTheme.cardBg, border: `1px solid ${currentTheme.borderColor}` }}>
 
@@ -369,12 +368,7 @@ export default function ReviewPropertyPage() {
                                     </h3>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        {[
-                                            property.arv !== undefined ? { label: "After Repair Value", value: property.arv } : null,
-                                            property.repair_estimate !== undefined ? { label: "Est. Repair Costs", value: property.repair_estimate } : null,
-                                            property.holding_costs !== undefined ? { label: "Holding Costs", value: property.holding_costs } : null,
-                                            property.assignment_fee !== undefined ? { label: "Assignment Fee", value: property.assignment_fee } : null,
-                                        ].filter(item => item !== null).map((item: any, i) => (
+                                        {investmentSummaryItems.map((item, i) => (
                                             <div key={i} className="flex flex-col gap-1 p-4 rounded-2xl border bg-opacity-30 h-full justify-center"
                                                 style={{ borderColor: currentTheme.borderColor, backgroundColor: currentTheme.cardBg }}>
                                                 <span className="text-xs font-bold uppercase tracking-wider opacity-60 truncate w-full"

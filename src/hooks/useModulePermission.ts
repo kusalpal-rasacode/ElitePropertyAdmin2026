@@ -4,13 +4,14 @@ import { useAuth } from "@/providers/AuthProvider";
 import { isEnterpriseAdmin, isSuperAdmin } from "@/utils/authUtils";
 import type { ActionKey, ModuleKey, PermissionsMap } from "@/types/rbac.type";
 
-const resolveModuleKey = (module: ModuleKey | "users" | "property"): ModuleKey => {
+const resolveModuleKey = (module: ModuleKey | "users" | "property" | "rent"): ModuleKey => {
   if (module === "users") return "user_management";
   if (module === "property") return "properties";
+  if (module === "rent") return "rent";
   return module;
 };
 
-export function useModulePermission(module: ModuleKey | "users" | "property") {
+export function useModulePermission(module: ModuleKey | "users" | "property" | "rent") {
   const { user } = useAuth();
   const normalizedModule = resolveModuleKey(module);
   const superAdmin = isSuperAdmin(user);

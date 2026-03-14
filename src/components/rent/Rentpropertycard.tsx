@@ -22,9 +22,9 @@ type RentPropertyCardProps = {
   property: PropertyData;
   activeTab: "all" | "pending";
   isRejectedPendingList: boolean;
-  canViewProperties: boolean;
-  canEditProperties: boolean;
-  canDeleteProperties: boolean;
+  canViewRentals: boolean;
+  canEditRentals: boolean;
+  canDeleteRentals: boolean;
   creatorInfo?: CreatorPreview;
   listingImage: string;
   listingImageFailed: boolean;
@@ -42,9 +42,9 @@ export function RentPropertyCard({
   property,
   activeTab,
   isRejectedPendingList,
-  canViewProperties,
-  canEditProperties,
-  canDeleteProperties,
+  canViewRentals,
+  canEditRentals,
+  canDeleteRentals,
   creatorInfo,
   listingImage,
   listingImageFailed,
@@ -174,7 +174,7 @@ export function RentPropertyCard({
 
           {/* Dropdown */}
           <div className="relative">
-            {(canViewProperties || canEditProperties || canDeleteProperties) && (
+            {(canViewRentals || canEditRentals || canDeleteRentals) && (
               <button
                 onClick={(e) => { e.stopPropagation(); onMenuToggle(); }}
                 className="hover:opacity-80 p-1 rounded-full hover:bg-black/5 transition-colors"
@@ -191,7 +191,7 @@ export function RentPropertyCard({
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex flex-col py-1">
-                  {canViewProperties && (
+                  {canViewRentals && (
                     <button
                       onClick={() => router.push(`/rent/review/${property.id}${activeTab === "pending" ? "?source=pending" : ""}`)}
                       className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors"
@@ -201,7 +201,7 @@ export function RentPropertyCard({
                     </button>
                   )}
 
-                  {canEditProperties && property.status === "Pending" && !isRejectedPendingList && (
+                  {canEditRentals && property.status === "Pending" && !isRejectedPendingList && (
                     <button
                       onClick={() => router.push(`/rent/edit/${property.id}`)}
                       className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors"
@@ -211,7 +211,7 @@ export function RentPropertyCard({
                     </button>
                   )}
 
-                  {canEditProperties && (
+                  {canEditRentals && (
                     activeTab === "all" ? (
                       <button
                         onClick={() => onToggleStatus(property)}
@@ -231,7 +231,7 @@ export function RentPropertyCard({
                     )
                   )}
 
-                  {activeTab !== "all" && canEditProperties && String(property.status).toLowerCase() !== "rejected" && (
+                  {activeTab !== "all" && canEditRentals && String(property.status).toLowerCase() !== "rejected" && (
                     <button
                       onClick={(e) => { e.stopPropagation(); onReject(property.id); }}
                       className="px-4 py-2.5 text-left text-sm font-semibold text-amber-600 hover:bg-amber-50 transition-colors w-full"
@@ -240,11 +240,11 @@ export function RentPropertyCard({
                     </button>
                   )}
 
-                  {(canDeleteProperties || (canEditProperties && activeTab !== "all")) && (
+                  {(canDeleteRentals || (canEditRentals && activeTab !== "all")) && (
                     <div className="h-px bg-black/5 my-1" style={{ backgroundColor: currentTheme.borderColor }} />
                   )}
 
-                  {canDeleteProperties && (
+                  {canDeleteRentals && (
                     <button
                       onClick={(e) => { e.stopPropagation(); onDelete(property.id); onMenuClose(); }}
                       className="px-4 py-2.5 text-left text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors"

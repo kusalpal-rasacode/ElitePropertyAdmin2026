@@ -10,7 +10,7 @@ import {
 } from "react-icons/md";
 import { useRouter } from "next/navigation";
 import { useTheme } from "@/providers/ThemeProvider";
-import type { PropertyData, ActiveTab, PendingStatus, PendingAction } from "@/types/properties.types";
+import type { PropertyData, ActiveTab, PendingStatus } from "@/types/properties.types";
 
 interface PropertyCardProps {
     property: PropertyData;
@@ -56,6 +56,7 @@ export function PropertyCard({
     const imageKey = `${property.id}:${listingImage}`;
     const showListingImage = Boolean(listingImage) && !listingImageFailures[imageKey];
     const isMenuOpen = activeMenuId === property.id;
+    const reviewHref = `/properties/review/${property.id}${activeTab === "pending" ? "?source=pending" : ""}`;
 
     // ─── Status badge logic ───────────────────────────────────────────────────
     const statusBadgeClass =
@@ -94,9 +95,7 @@ export function PropertyCard({
     return (
         <div
             onClick={() =>
-                router.push(
-                    `/properties/review/${property.id}${activeTab === "pending" ? "?source=pending" : ""}`
-                )
+                router.push(reviewHref)
             }
             className="rounded-2xl border overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer backdrop-blur-md"
             style={{ backgroundColor: currentTheme.cardBg + "E6", borderColor: currentTheme.borderColor }}
@@ -218,6 +217,7 @@ export function PropertyCard({
                                 activeTab={activeTab}
                                 pendingStatus={pendingStatus}
                                 isRejectedPendingList={isRejectedPendingList}
+                                reviewHref={reviewHref}
                                 canViewProperties={canViewProperties}
                                 canEditProperties={canEditProperties}
                                 canDeleteProperties={canDeleteProperties}
@@ -295,7 +295,7 @@ function StatCell({
 }: {
     icon: React.ReactNode;
     label: string;
-    value: any;
+    value: React.ReactNode;
     bordered?: boolean;
 }) {
     const { currentTheme } = useTheme();
@@ -323,6 +323,7 @@ function PropertyCardMenu({
     activeTab,
     pendingStatus,
     isRejectedPendingList,
+    reviewHref,
     canViewProperties,
     canEditProperties,
     canDeleteProperties,
@@ -336,6 +337,7 @@ function PropertyCardMenu({
     activeTab: ActiveTab;
     pendingStatus: PendingStatus;
     isRejectedPendingList: boolean;
+    reviewHref: string;
     canViewProperties: boolean;
     canEditProperties: boolean;
     canDeleteProperties: boolean;
@@ -355,7 +357,7 @@ function PropertyCardMenu({
         >
             <div className="flex flex-col py-1">
                 {canViewProperties && (
-                    <Link href={`/properties/review/${property.id}`} className="w-full">
+                    <Link href={reviewHref} className="w-full">
                         <button
                             className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors"
                             style={{ color: currentTheme.headingColor }}

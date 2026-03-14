@@ -78,13 +78,13 @@ export function useRentProperties() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { permissionReady, can } = useModulePermission("properties");
+  const { permissionReady, can } = useModulePermission("rent");
   const { syncToUrl } = useUrlSync();
 
-  const canViewProperties = can("view");
-  const canAddProperties = can("add");
-  const canEditProperties = can("edit");
-  const canDeleteProperties = can("delete");
+  const canViewRentals = can("view");
+  const canAddRentals = can("add");
+  const canEditRentals = can("edit");
+  const canDeleteRentals = can("delete");
 
   const isOrganizationUser = isEnterpriseAdmin(user) && !isSuperAdmin(user);
 
@@ -155,7 +155,7 @@ export function useRentProperties() {
   });
 
   const initiateDelete = (id: number | string) => {
-    if (!canDeleteProperties) return;
+    if (!canDeleteRentals) return;
     _initiateDelete(id);
     setActiveMenuId(null);
   };
@@ -179,13 +179,13 @@ export function useRentProperties() {
   });
 
   const onApproveClick = (id: number | string) => {
-    if (!canEditProperties) return;
+    if (!canEditRentals) return;
     _onApproveClick(id);
     setActiveMenuId(null);
   };
 
   const onRejectClick = (id: number | string) => {
-    if (!canEditProperties) return;
+    if (!canEditRentals) return;
     _onRejectClick(id);
     setActiveMenuId(null);
   };
@@ -242,7 +242,7 @@ export function useRentProperties() {
   // ─── Fetch ────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!permissionReady) return;
-    if (!canViewProperties) {
+    if (!canViewRentals) {
       setAllProperties([]);
       setProperties([]);
       setLoading(false);
@@ -309,7 +309,7 @@ export function useRentProperties() {
     return () => { isCurrentRequest = false; };
   }, [
     activeTab, pendingStatus, filterStatus, refreshKey,
-    permissionReady, canViewProperties,
+    permissionReady, canViewRentals,
     pagination.page, pagination.limit, searchQuery,
   ]);
 
@@ -398,7 +398,7 @@ export function useRentProperties() {
   };
 
   const handleToggleRentalStatus = async (property: PropertyData) => {
-    if (!canEditProperties) return;
+    if (!canEditRentals) return;
     try {
       if (property.status === "Inactive") {
         await activateRentalService(property.id);
@@ -437,7 +437,7 @@ export function useRentProperties() {
 
   return {
     // Auth / permissions
-    mounted, canViewProperties, canAddProperties, canEditProperties, canDeleteProperties,
+    mounted, canViewRentals, canAddRentals, canEditRentals, canDeleteRentals,
     isOrganizationUser, permissionReady,
 
     // Data

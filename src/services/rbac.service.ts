@@ -329,7 +329,18 @@ export const updateDynamicModule = async (
 };
 
 export const getActiveModuleConfig = (): { key: string; label: string }[] => {
-  return getDynamicModules().map(({ key, label }) => ({ key, label }));
+  const staticModules = MODULE_CONFIG.map(({ key, label }) => ({ key, label }));
+  const dynamicModules = getDynamicModules().map(({ key, label }) => ({ key, label }));
+
+  // Deduplicate by key, favoring static if both exist
+  const combined = [...staticModules];
+  dynamicModules.forEach((dm) => {
+    if (!combined.some((sm) => sm.key === dm.key)) {
+      combined.push(dm);
+    }
+  });
+
+  return combined;
 };
 
 export const getActiveModuleKeys = (): string[] => {

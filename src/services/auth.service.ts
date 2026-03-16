@@ -1,7 +1,6 @@
 /* ======================
     Login API Call
    ====================== */
-import { api } from "./axios";
 import { AxiosError } from "axios";
 
 export interface LoginPayload {
@@ -73,33 +72,21 @@ export const loginService = async (
     payload: LoginPayload,
 ): Promise<LoginResponse> => {
     try {
-        const response = await api.post<LoginResponse>("/auth/login", payload);
-        const body: any = response.data;
+        // Call the local Next.js route — it forwards to backend and sets HTTP-only cookies
+        const res = await fetch("/api/auth/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
 
-        const accessToken =
-            body?.data?.tokens?.accessToken ??
-            body?.data?.tokens?.access_token ??
-            body?.tokens?.accessToken ??
-            body?.tokens?.access_token ??
-            body?.accessToken ??
-            body?.access_token;
+        const body: any = await res.json();
 
-        const refreshToken =
-            body?.data?.tokens?.refreshToken ??
-            body?.data?.tokens?.refresh_token ??
-            body?.tokens?.refreshToken ??
-            body?.tokens?.refresh_token ??
-            body?.refreshToken ??
-            body?.refresh_token;
+        if (!res.ok) {
+            throw body;
+        }
 
-        // Save tokens (client-side only)
+        // Store non-sensitive user/subscription data in localStorage for UI
         if (typeof window !== "undefined") {
-            if (accessToken) {
-                localStorage.setItem("accessToken", accessToken);
-            }
-            if (refreshToken) {
-                localStorage.setItem("refreshToken", refreshToken);
-            }
             if (body?.data?.user) {
                 localStorage.setItem("user", JSON.stringify(body.data.user));
             }
@@ -111,7 +98,7 @@ export const loginService = async (
             }
         }
 
-        return response.data;
+        return body as LoginResponse;
     } catch (error: unknown) {
         const axiosError = error as AxiosError;
         throw axiosError.response?.data || error;

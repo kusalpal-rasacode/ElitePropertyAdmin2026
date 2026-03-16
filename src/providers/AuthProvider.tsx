@@ -29,12 +29,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User>(() => {
         if (typeof window === "undefined") return null;
 
-        const hasToken = !!localStorage.getItem("accessToken");
-        if (!hasToken) {
-            localStorage.removeItem("user");
-            return null;
-        }
-
         const savedUser = localStorage.getItem("user");
         if (!savedUser) return null;
 
@@ -50,18 +44,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (!user) return;
 
-        // Validating Authorization
         if (!hasDashboardAccess(user)) {
             console.warn("Unauthorized Session Detected: Logging out due to missing permissions.");
-
-            // Force logout
             setUser(null);
             if (typeof window !== "undefined") {
-                localStorage.removeItem("accessToken");
-                localStorage.removeItem("refreshToken");
                 localStorage.removeItem("user");
                 localStorage.removeItem("subscription");
             }
+            // Clear HTTP-only cookies via server route
+            fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
         }
     }, [user]);
 
@@ -72,13 +63,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const logout = () => {
+    const logout = async () => {
         setUser(null);
         if (typeof window !== "undefined") {
-            localStorage.removeItem("accessToken");
-            localStorage.removeItem("refreshToken");
             localStorage.removeItem("user");
             localStorage.removeItem("subscription");
+        }
+        // Clear HTTP-only accessToken and refreshToken cookies
+        try {
+            await fetch("/api/auth/logout", { method: "POST" });
+        } catch {
+            // Continue even if the request fails
         }
     };
 
@@ -88,11 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 user,
                 login,
                 logout,
-                isAuthenticated:
-                    !!user &&
-                    (typeof window === "undefined"
-                        ? true
-                        : !!localStorage.getItem("accessToken")),
+                isAuthenticated: !!user,
             }}
         >
             {children}

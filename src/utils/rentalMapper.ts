@@ -224,6 +224,9 @@ export const mapRentalToPropertyData = (rental: Record<string, unknown>): Proper
             ? "Weekly"
             : "Monthly"),
     security_deposit: safeNumber(rental?.security_deposit, 0),
+    start_date: safeString(rental?.start_date),
+    end_date: safeString(rental?.end_date),
+
     available_from: safeString(rental?.available_from),
     lease_duration: safeNumber(rental?.lease_duration_months, 0),
     is_furnished: Boolean(rental?.is_furnished),
@@ -301,6 +304,8 @@ export const mapPropertyFormToRentalPayload = (source: FormData, isUpdate: boole
     bathroom_renovation_required: "bathroom_renovation_required",
     drywall_repair_required: "drywall_repair_required",
     interior_paint_required: "interior_paint_required",
+    start_date: "start_date",
+    end_date: "end_date",
     available_from: "available_from",
     lease_duration: "lease_duration_months",
     application_fee: "application_fee",

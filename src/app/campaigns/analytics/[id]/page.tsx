@@ -12,6 +12,7 @@ import { motion } from "framer-motion";
 import { useTheme } from "@/providers/ThemeProvider";
 import { getCampaignByIdService } from "@/services/campaigns.service";
 import { PageHeader } from "@/components/common/Pageheader";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
 import { SectionCard } from "@/components/common/Sectioncard";
 
 // --- Enhanced Mock Data Generators ---
@@ -34,6 +35,14 @@ const trafficSources = [
 ];
 
 export default function CampaignAnalyticsPage() {
+    return (
+        <PermissionGuard module="campaign" action="view">
+            <CampaignAnalyticsContent />
+        </PermissionGuard>
+    );
+}
+
+function CampaignAnalyticsContent() {
     const { currentTheme } = useTheme();
     const router = useRouter();
     const params = useParams();

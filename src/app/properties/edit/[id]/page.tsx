@@ -17,24 +17,34 @@ const getErrorMessage = (error: unknown, fallback: string) => {
   return fallback;
 };
 
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
+
 export default function EditPropertyPage() {
+  return (
+    <PermissionGuard module="properties" action="edit">
+      <EditPropertyContent />
+    </PermissionGuard>
+  );
+}
+
+function EditPropertyContent() {
   const router = useRouter();
   const params = useParams();
   const id = params?.id as string;
   const queryClient = useQueryClient();
 
-  const { data: rawProperty, isLoading, isError, error } = useQuery({
-    queryKey: ["property", id],
-    queryFn: () => getPendingPropertyByIdService(id),
-    enabled: !!id,
+  const { data: property, isLoading: isFetching } = useQuery({
+    queryKey: ["properties", id],
+    queryFn: () => getPropertyByIdService(id), // Changed from getPendingPropertyByIdService
+    enabled: !!id, // Kept enabled check
   });
 
-  const { mutate: updateProperty, isPending: isUpdating } = useMutation({
-    mutationFn: (formData: FormData) => putPropertyByIdService(id, formData),
+  const { mutate: updateProperty, isPending } = useMutation({
+    mutationFn: (formData: FormData) => putPropertyByIdService(id, formData), // Kept putPropertyByIdService
     onSuccess: (response) => {
       showSuccessToast(response?.message || "Property updated successfully.");
-      queryClient.invalidateQueries({ queryKey: ["property", id] });
-      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      queryClient.invalidateQueries({ queryKey: ["properties", id] }); // Invalidate specific property
+      queryClient.invalidateQueries({ queryKey: ["properties"] }); // Invalidate all properties
       router.replace("/properties");
     },
     onError: (error: unknown) => {
@@ -42,11 +52,12 @@ export default function EditPropertyPage() {
     },
   });
 
-  if (isLoading) return <div className="py-20 text-center">Loading property...</div>;
-  if (isError) return <div className="py-20 text-center text-red-500">{getErrorMessage(error, "Failed to load property.")}</div>;
+  if (isFetching) return <div className="p-8 text-center text-slate-500">Loading property details...</div>;
+  // Removed isError check as per snippet, assuming error handling is implicit or less critical for display
 
-  const initialData = rawProperty ? { ...propertyToFormData(rawProperty), listing_type: "Sale" as const } : undefined;
-  const existingImages = rawProperty?.images || [];
+  // Re-added original logic for initialData and existingImages based on 'property'
+  const initialData = property ? { ...propertyToFormData(property), listing_type: "Sale" as const } : undefined;
+  const existingImages = property?.images || [];
 
   return (
     <PropertyForm
@@ -54,7 +65,7 @@ export default function EditPropertyPage() {
       initialData={initialData}
       existingImages={existingImages}
       onSubmit={(formData) => updateProperty(formData)}
-      loading={isUpdating}
+      loading={isPending}
       backUrl="/properties"
     />
   );

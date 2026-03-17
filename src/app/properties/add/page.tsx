@@ -7,6 +7,7 @@ import PropertyForm from "@/components/common/Propertiesform";
 import { propertiesService } from "@/services/properties.service";
 import { getInitialFormData } from "@/utils/propertyFormUtils";
 import { showSuccessToast, showErrorToast } from "@/utils/toast";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
 
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (typeof error === "string") return error;
@@ -19,6 +20,14 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 };
 
 export default function AddPropertyPage() {
+  return (
+    <PermissionGuard module="properties" action="add">
+      <AddPropertyContent />
+    </PermissionGuard>
+  );
+}
+
+function AddPropertyContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const initialData = useMemo(() => ({ ...getInitialFormData(), listing_type: "Sale" as const }), []);

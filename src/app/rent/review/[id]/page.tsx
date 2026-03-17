@@ -10,6 +10,7 @@ import { approveRentalService, rejectRentalService, getRentalByIdService, getPen
 import { getRentalImageCandidates, mapRentalToPropertyData } from "@/utils/rentalMapper";
 import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { showErrorToast, showSuccessToast } from "@/utils/toast";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
 
 const getErrorMessage = (error: unknown, fallback: string) => {
     if (typeof error === "string") return error;
@@ -28,8 +29,16 @@ type CreatorInfo = {
 };
 
 export default function RentReviewPropertyPage() {
+    return (
+        <PermissionGuard module="rent" action="view">
+            <RentReviewContent />
+        </PermissionGuard>
+    );
+}
+
+function RentReviewContent() {
     const { currentTheme } = useTheme();
-    const params = useParams(); // To get property ID from URL
+    const params = useParams();
     const router = useRouter();
     const searchParams = useSearchParams();
     const source = searchParams.get("source");
@@ -86,23 +95,27 @@ export default function RentReviewPropertyPage() {
                         setSelectedImage(mapped.images[0]);
                     }
                     const raw = rental as Record<string, unknown>;
-                    const creatorRaw = raw.creator as Record<string, unknown> | undefined;
-                    if (creatorRaw && typeof creatorRaw === "object") {
-                        const first = typeof creatorRaw.first_name === "string" ? creatorRaw.first_name : "";
-                        const last = typeof creatorRaw.last_name === "string" ? creatorRaw.last_name : "";
-                        const username = typeof creatorRaw.username === "string" ? creatorRaw.username : "";
-                        const fullName = `${first} ${last}`.trim();
-                        const profileImageRaw = typeof creatorRaw.profile_image === "string" ? creatorRaw.profile_image : "";
-                        const phoneNumber = typeof creatorRaw.phone_number === "string" ? creatorRaw.phone_number : "";
-                        const profileImage = getRentalImageCandidates(profileImageRaw)[0] || profileImageRaw;
-                        setCreator({
-                            fullName: fullName || username || "Listing Agent",
-                            username: username || "",
-                            profileImage: profileImage || "",
-                            phoneNumber: phoneNumber || "",
-                        });
+                    const createdByRaw = (raw.created_by ?? raw.creator) as Record<string, unknown> | undefined;
+
+                    if (createdByRaw && typeof createdByRaw === "object") {
+                        const username    = typeof createdByRaw.username     === "string" ? createdByRaw.username     : "";
+                        const firstName   = typeof createdByRaw.first_name   === "string" ? createdByRaw.first_name   : "";
+                        const lastName    = typeof createdByRaw.last_name    === "string" ? createdByRaw.last_name    : "";
+                        const phoneNumber = typeof createdByRaw.phone_number === "string" ? createdByRaw.phone_number : "";
+
+                        // Build display name: prefer first+last, fall back to username
+                        const fullName = [firstName, lastName].filter(Boolean).join(" ").trim() || username || "Listing Agent";
+
+                        // Profile image (not present in this API, but kept for future-proofing)
+                        const profileImageRaw = typeof createdByRaw.profile_image === "string" ? createdByRaw.profile_image : "";
+                        const profileImage    = profileImageRaw
+                            ? (getRentalImageCandidates(profileImageRaw)[0] || profileImageRaw)
+                            : "";
+
+                        setCreator({ fullName, username, profileImage, phoneNumber });
                     }
-                } else {
+                    // ─────────────────────────────────────────────────────────────────
+                }else {
                     setError("Property not found");
                 }
             } catch (err: unknown) {
@@ -180,8 +193,6 @@ export default function RentReviewPropertyPage() {
 
     return (
         <div className="mx-auto space-y-8 pb-20">
-
-            {/* Header / Nav */}
             <div className="flex items-center justify-between">
                 <Link href="/rent" className="flex items-center gap-2 hover:opacity-70 transition-opacity" style={{ color: currentTheme.textColor }}>
                     <MdArrowBack size={20} />
@@ -227,13 +238,8 @@ export default function RentReviewPropertyPage() {
                 textareaPlaceholder="Please provide a reason for rejecting this property..."
             />
 
-            {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-
-                {/* Left Column - Images & Details */}
                 <div className="lg:col-span-2 space-y-6">
-
-                    {/* Main Image */}
                     <div className="aspect-video w-full rounded-2xl relative shadow-sm overflow-hidden group bg-gray-100">
                         {displayImage && !failedImageMap[displayImage] && resolveImageSrc(displayImage) ? (
                             <img
@@ -248,7 +254,6 @@ export default function RentReviewPropertyPage() {
                             </div>
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none"></div>
-
                         <div className="absolute bottom-4 left-4 flex gap-2 pointer-events-none">
                             <span className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-lg text-xs font-bold shadow-sm" style={{ color: currentTheme.headingColor }}>
                                 {property.listing_type || "Rent"}
@@ -259,7 +264,6 @@ export default function RentReviewPropertyPage() {
                         </div>
                     </div>
 
-                    {/* Thumbnail Gallery */}
                     {property.images && property.images.length > 1 && (
                         <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3">
                             {property.images.map((img, idx) => (
@@ -286,9 +290,7 @@ export default function RentReviewPropertyPage() {
                         </div>
                     )}
 
-                    {/* Details Sections */}
                     <div className="space-y-6">
-
                         {String(property.status).toLowerCase() === "rejected" && property.rejection_reason && (
                             <div className="rounded-3xl border shadow-sm p-6 bg-rose-50 border-rose-200">
                                 <h2 className="text-xl font-bold mb-3 text-rose-700 flex items-center gap-2">
@@ -301,7 +303,6 @@ export default function RentReviewPropertyPage() {
                             </div>
                         )}
 
-                        {/* Description */}
                         <div className="rounded-3xl border shadow-sm transition-all hover:shadow-md overflow-hidden relative"
                             style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}>
                             <div className="h-1 w-full bg-gradient-to-r from-transparent via-blue-500/50 to-transparent opacity-50"></div>
@@ -315,7 +316,6 @@ export default function RentReviewPropertyPage() {
                             </div>
                         </div>
 
-                        {/* Rental Specifications */}
                         <div className="rounded-3xl border shadow-sm p-8"
                             style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}>
                             <h3 className="text-lg font-bold mb-6 flex items-center gap-2" style={{ color: currentTheme.headingColor }}>
@@ -324,24 +324,27 @@ export default function RentReviewPropertyPage() {
                                 </div>
                                 Rental Specifications
                             </h3>
-
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6 text-sm">
                                 {[
-                                    { label: "Property Type", value: property.property_type },
-                                    { label: "Year Built", value: property.year_built },
-                                    { label: "Rent Price", value: property.rent_price ? `$${property.rent_price.toLocaleString()}/${property.rent_frequency === 'Monthly' ? 'mo' : 'yr'}` : null },
+                                   { label: "Property Type",    value: property.property_type },
+                                    { label: "Year Built",       value: property.year_built },
+                                    // API field: monthly_rent → mapped to rent_price
+                                    { label: "Rent Price",       value: property.rent_price ? `$${property.rent_price.toLocaleString()}/${property.rent_frequency === 'Monthly' ? 'mo' : property.rent_frequency ?? 'mo'}` : null },
                                     { label: "Security Deposit", value: property.security_deposit ? `$${property.security_deposit.toLocaleString()}` : null },
-                                    { label: "Available From", value: property.available_from ? new Date(property.available_from).toLocaleDateString() : "Now" },
-                                    { label: "Lease Duration", value: property.lease_duration ? `${property.lease_duration} Months` : null },
-                                    { label: "Application Fee", value: property.application_fee ? `$${property.application_fee.toLocaleString()}` : "None" },
-                                    { label: "Move-in Fees", value: property.move_in_fees ? `$${property.move_in_fees.toLocaleString()}` : "None" },
-                                    { label: "Smoking Policy", value: property.smoking_policy || "Not Specified" },
-                                    { label: "Furnished", value: property.is_furnished ? "Yes" : "No" },
-                                    { label: "Pets Allowed", value: property.pets_allowed ? "Yes" : "No" },
-                                    { label: "Garage Spaces", value: property.garage_spaces || "None" },
-                                    { label: "Parking Spaces", value: property.parking_spaces || "None" },
-                                    { label: "County", value: property.county },
-                                    { label: "Listing ID", value: `#${property.id}` },
+                                    { label: "Start Date",       value: property.start_date  ? new Date(property.start_date).toLocaleDateString()  : "N/A" },
+                                    { label: "End Date",         value: property.end_date    ? new Date(property.end_date).toLocaleDateString()    : "N/A" },
+                                    { label: "Available From",   value: property.available_from ? new Date(property.available_from).toLocaleDateString() : "Now" },
+                                    // API field: lease_duration_months → mapped to lease_duration
+                                    { label: "Lease Duration",   value: property.lease_duration ? `${property.lease_duration} Months` : null },
+                                    { label: "Application Fee",  value: property.application_fee ? `$${property.application_fee.toLocaleString()}` : "None" },
+                                    { label: "Move-in Fees",     value: property.move_in_fees    ? `$${property.move_in_fees.toLocaleString()}`    : "None" },
+                                    { label: "Smoking Policy",   value: property.smoking_policy  || "Not Specified" },
+                                    { label: "Furnished",        value: property.is_furnished ? "Yes" : "No" },
+                                    { label: "Pets Allowed",     value: property.pets_allowed  ? "Yes" : "No" },
+                                    { label: "Garage Spaces",    value: property.garage_spaces  || "None" },
+                                    { label: "Parking Spaces",   value: property.parking_spaces || "None" },
+                                    { label: "County",           value: property.county },
+                                    { label: "Listing ID",       value: `#${property.id}` },
                                 ].map((item, i) => (
                                     <div key={i} className="flex flex-col gap-1 pb-2 border-b border-dashed"
                                         style={{ borderColor: currentTheme.borderColor }}>
@@ -352,7 +355,6 @@ export default function RentReviewPropertyPage() {
                             </div>
                         </div>
 
-                        {/* Utilities Included */}
                         {property.utilities_included && property.utilities_included.length > 0 && (
                             <div className="rounded-3xl border shadow-sm p-8"
                                 style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}>
@@ -374,7 +376,6 @@ export default function RentReviewPropertyPage() {
                             </div>
                         )}
 
-                        {/* Amenities */}
                         {property.amenities && property.amenities.length > 0 && (
                             <div className="rounded-3xl border shadow-sm p-8"
                                 style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}>
@@ -398,7 +399,6 @@ export default function RentReviewPropertyPage() {
                             </div>
                         )}
 
-                        {/* Conditions & Additional Info */}
                         <div className="rounded-3xl border shadow-sm p-8"
                             style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}>
                             <h3 className="text-lg font-bold mb-6 flex items-center gap-2" style={{ color: currentTheme.headingColor }}>
@@ -407,7 +407,6 @@ export default function RentReviewPropertyPage() {
                                 </div>
                                 Condition & Details
                             </h3>
-
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 <div className="flex items-center gap-3 p-3 rounded-xl border bg-opacity-30" style={{ borderColor: currentTheme.borderColor, backgroundColor: currentTheme.cardBg }}>
                                     <div className="p-1 rounded-full bg-blue-500/10 text-blue-500"><MdHouse size={16} /></div>
@@ -434,7 +433,6 @@ export default function RentReviewPropertyPage() {
                             </div>
                         </div>
 
-                        {/* Seller/Landlord Notes */}
                         {property.seller_notes && (
                             <div className="rounded-3xl border shadow-sm p-6"
                                 style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}>
@@ -449,17 +447,12 @@ export default function RentReviewPropertyPage() {
                                 </p>
                             </div>
                         )}
-
                     </div>
                 </div>
 
-                {/* Right Column - Key Info */}
                 <div className="space-y-6 self-start" style={{ position: "sticky", top: "1.5rem" }}>
-
-                    {/* Key Specs Card */}
                     <div className="p-6 rounded-2xl border shadow-sm space-y-6"
                         style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}>
-
                         <div>
                             <h1 className="text-2xl font-bold leading-tight mb-2" style={{ color: currentTheme.headingColor }}>{property.street_address}</h1>
                             <div className="flex items-center gap-1 opacity-70" style={{ color: currentTheme.textColor }}>
@@ -467,12 +460,10 @@ export default function RentReviewPropertyPage() {
                                 <span className="text-sm font-medium">{property.city}, {property.state} {property.zip_code}</span>
                             </div>
                         </div>
-
                         <div className="text-3xl font-bold" style={{ color: currentTheme.primary }}>
                             ${(property.rent_price || 0).toLocaleString()}
                             <span className="text-lg text-gray-400 font-normal ml-1">/mo</span>
                         </div>
-
                         <div className="grid grid-cols-3 gap-4 py-4 border-y" style={{ borderColor: currentTheme.borderColor }}>
                             <div className="text-center">
                                 <div className="text-2xl font-bold mb-1" style={{ color: currentTheme.headingColor }}>{property.bedrooms}</div>
@@ -493,8 +484,6 @@ export default function RentReviewPropertyPage() {
                                 </div>
                             </div>
                         </div>
-
-                        {/* Security Deposit & Lease */}
                         <div className="space-y-3 pt-2">
                             <div className="flex justify-between text-sm">
                                 <span className="opacity-70" style={{ color: currentTheme.textColor }}>Security Deposit</span>
@@ -509,8 +498,6 @@ export default function RentReviewPropertyPage() {
                                 <span className="font-bold" style={{ color: currentTheme.headingColor }}>{property.available_from ? new Date(property.available_from).toLocaleDateString() : "Now"}</span>
                             </div>
                         </div>
-
-                        {/* Agent */}
                         <div className="flex items-center gap-3 pt-4 border-t" style={{ borderColor: currentTheme.borderColor }}>
                             {creator?.profileImage ? (
                                 <img
@@ -519,26 +506,35 @@ export default function RentReviewPropertyPage() {
                                     className="w-10 h-10 rounded-full object-cover"
                                 />
                             ) : (
-                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold bg-slate-200 text-slate-700">
-                                    {creator?.fullName?.slice(0, 1) || "A"}
+                                /* Fallback avatar — first letter of username or name */
+                                <div
+                                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                                    style={{ backgroundColor: currentTheme.primary + "22", color: currentTheme.primary }}
+                                >
+                                    {(creator?.fullName ?? creator?.username ?? "A").slice(0, 1).toUpperCase()}
                                 </div>
                             )}
-                            <div>
-                                <div className="font-bold text-sm" style={{ color: currentTheme.headingColor }}>
+                            <div className="min-w-0">
+                                <div className="font-bold text-sm truncate" style={{ color: currentTheme.headingColor }}>
                                     {creator?.fullName || "Listing Agent"}
                                 </div>
-
-                                {creator?.username && (
-                                    <div className="text-[11px] opacity-60" style={{ color: currentTheme.textColor }}>
+                                {/* Show email/username on line 2 */}
+                                {/* {creator?.username && (
+                                    <div className="text-[11px] opacity-60 truncate" style={{ color: currentTheme.textColor }}>
                                         {creator.username}
+                                    </div>
+                                )} */}
+                                {/* Phone number on line 3 */}
+                                {creator?.phoneNumber && (
+                                    <div className="text-[11px] opacity-60 truncate" style={{ color: currentTheme.textColor }}>
+                                        {creator.phoneNumber}
                                     </div>
                                 )}
                             </div>
                         </div>
                     </div>
                 </div>
-
             </div>
-        </div >
+        </div>
     );
 }

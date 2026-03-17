@@ -8,6 +8,7 @@ import { createRentalService } from "@/services/rentals.service";
 import { getInitialFormData } from "@/utils/propertyFormUtils";
 import { mapPropertyFormToRentalPayload } from "@/utils/rentalMapper";
 import { showErrorToast, showSuccessToast } from "@/utils/toast";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
 
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (typeof error === "string") return error;
@@ -19,12 +20,20 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 };
 
 export default function AddRentPage() {
+  return (
+    <PermissionGuard module="rent" action="add">
+      <AddRentContent />
+    </PermissionGuard>
+  );
+}
+
+function AddRentContent() {
   const router = useRouter();
   const queryClient = useQueryClient();
   const initialData = useMemo(() => ({ ...getInitialFormData(), listing_type: "Rent" as const }), []);
 
   const { mutate: addRental, isPending } = useMutation({
-    mutationFn: (formData: FormData) => {
+    mutationFn: (formData: any) => {
       const rentalPayload = mapPropertyFormToRentalPayload(formData);
       return createRentalService(rentalPayload);
     },

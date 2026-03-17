@@ -8,6 +8,8 @@ import { ConfirmModal } from "@/components/common/ConfirmModal";
 import { getCampaignsService, deleteCampaignService, updateCampaignService } from "@/services/campaigns.service";
 import { useModulePermission } from "@/hooks/useModulePermission";
 import { Pagination } from "@/components/common/Pagination";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
+
 export default function CampaignsPage() {
     const { currentTheme } = useTheme();
     const router = useRouter();
@@ -15,7 +17,7 @@ export default function CampaignsPage() {
     const [loading, setLoading] = React.useState(true);
     const [error, setError] = React.useState<string | null>(null);
     const [searchTerm, setSearchTerm] = React.useState("");
-const [mounted, setMounted] = useState(false);
+    const [mounted, setMounted] = useState(false);
 
     const [activeMenuId, setActiveMenuId] = React.useState<number | null>(null);
     const [deleteId, setDeleteId] = React.useState<number | null>(null);
@@ -26,9 +28,9 @@ const [mounted, setMounted] = useState(false);
     const canEditCampaign = can("edit");
     const canDeleteCampaign = can("delete");
     
-useEffect(() => {
-    setMounted(true);
-}, []);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     // Fetch Campaigns
     const fetchCampaigns = async () => {
@@ -148,227 +150,219 @@ useEffect(() => {
         }
     };
 
-    if (!loading && permissionReady && !canViewCampaign) {
-        return (
-            <div className="max-w-[1600px] mx-auto py-10">
-                <div className="rounded-xl border px-5 py-4 text-sm font-medium" style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
-                    You do not have `view` permission for Campaigns.
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <div className="max-w-[1600px] mx-auto space-y-8 min-h-screen pb-10">
+        <PermissionGuard module="campaign" action="view">
+            <div className="max-w-[1600px] mx-auto space-y-8 min-h-screen pb-10">
 
-            {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
-                    <h1 className="text-2xl font-bold tracking-tight" style={{ color: currentTheme.headingColor }}>Marketing Campaigns</h1>
-                    <p className="font-medium text-sm" style={{ color: currentTheme.textColor }}>Track and manage marketing efforts across platforms.</p>
+                {/* Header */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight" style={{ color: currentTheme.headingColor }}>Marketing Campaigns</h1>
+                        <p className="font-medium text-sm" style={{ color: currentTheme.textColor }}>Track and manage marketing efforts across platforms.</p>
+                    </div>
+
+                    <div className="flex gap-3">
+                        <div className="relative group">
+                            <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 transition-colors" size={20} style={{ color: currentTheme.textColor }} />
+                            <input
+                                type="text"
+                                placeholder="Search campaigns..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 pr-4 py-2.5 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-100 w-64 transition-all"
+                                style={{
+                                    backgroundColor: currentTheme.cardBg,
+                                    borderColor: currentTheme.borderColor,
+                                    color: currentTheme.textColor
+                                }}
+                            />
+                        </div>
+                        {mounted && canAddCampaign && (
+                            <button
+                                onClick={() => router.push('/campaigns/add')}
+                                className="px-5 py-2.5 text-white rounded-lg shadow-sm hover:brightness-110 transition-all font-bold text-sm flex items-center gap-2"
+                                style={{ backgroundColor: currentTheme.primary }}
+                            >
+                                <MdAdd size={20} />
+                                Create Campaign
+                            </button>
+                        )}
+                    </div>
                 </div>
 
-                <div className="flex gap-3">
-                    <div className="relative group">
-                        <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 transition-colors" size={20} style={{ color: currentTheme.textColor }} />
-                        <input
-                            type="text"
-                            placeholder="Search campaigns..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 pr-4 py-2.5 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-100 w-64 transition-all"
-                            style={{
-                                backgroundColor: currentTheme.cardBg,
-                                borderColor: currentTheme.borderColor,
-                                color: currentTheme.textColor
-                            }}
-                        />
-                    </div>
-                    {mounted && canAddCampaign && (
-    <button
-        onClick={() => router.push('/campaigns/add')}
-        className="px-5 py-2.5 text-white rounded-lg shadow-sm hover:brightness-110 transition-all font-bold text-sm flex items-center gap-2"
-        style={{ backgroundColor: currentTheme.primary }}
-    >
-        <MdAdd size={20} />
-        Create Campaign
-    </button>
-)}
-                </div>
-            </div>
-
-            {/* Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {loading ? (
-                    <div className="col-span-full py-20 flex justify-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-                    </div>
-                ) : error ? (
-                    <div className="col-span-full py-20 text-center text-red-500">
-                        {error}
-                    </div>
-                ) : filteredCampaigns.length === 0 ? (
-                    <div className="col-span-full py-20 text-center opacity-60">
-                        <p>{searchTerm ? "No campaigns match your search." : "No campaigns found. Create one to get started."}</p>
-                    </div>
-                ) : (
-                    currentCampaigns.map((campaign) => (
-                        <div
-                            key={campaign.id}
-                            className="p-6 rounded-2xl border shadow-sm hover:shadow-md transition-all group backdrop-blur-md relative"
-                            style={{
-                                backgroundColor: currentTheme.cardBg + 'E6',
-                                borderColor: currentTheme.borderColor
-                            }}
-                        >
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="flex items-center gap-3">
-                                    <div
-                                        className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl"
-                                        style={{ backgroundColor: currentTheme.primary }}
-                                    >
-                                        <MdCampaign />
+                {/* Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {loading ? (
+                        <div className="col-span-full py-20 flex justify-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+                        </div>
+                    ) : error ? (
+                        <div className="col-span-full py-20 text-center text-red-500">
+                            {error}
+                        </div>
+                    ) : filteredCampaigns.length === 0 ? (
+                        <div className="col-span-full py-20 text-center opacity-60">
+                            <p>{searchTerm ? "No campaigns match your search." : "No campaigns found. Create one to get started."}</p>
+                        </div>
+                    ) : (
+                        currentCampaigns.map((campaign) => (
+                            <div
+                                key={campaign.id}
+                                className="p-6 rounded-2xl border shadow-sm hover:shadow-md transition-all group backdrop-blur-md relative"
+                                style={{
+                                    backgroundColor: currentTheme.cardBg + 'E6',
+                                    borderColor: currentTheme.borderColor
+                                }}
+                            >
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div
+                                            className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-xl"
+                                            style={{ backgroundColor: currentTheme.primary }}
+                                        >
+                                            <MdCampaign />
+                                        </div>
+                                        <div>
+                                            <h3 className="text-base font-bold line-clamp-1" style={{ color: currentTheme.headingColor }}>{campaign.name}</h3>
+                                            <p className="text-xs font-medium" style={{ color: currentTheme.textColor }}>
+                                                {Array.isArray(campaign.channel) ? campaign.channel.join(", ") : campaign.campaign_type}
+                                            </p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h3 className="text-base font-bold line-clamp-1" style={{ color: currentTheme.headingColor }}>{campaign.name}</h3>
-                                        <p className="text-xs font-medium" style={{ color: currentTheme.textColor }}>
-                                            {Array.isArray(campaign.channel) ? campaign.channel.join(", ") : campaign.campaign_type}
+
+                                    <div className="relative">
+                                        {(canViewCampaign || canEditCampaign || canDeleteCampaign) && (
+                                            <button
+                                                onClick={(e) => toggleMenu(campaign.id, e)}
+                                                className="hover:opacity-80 p-1 rounded-full hover:bg-black/5 transition-colors"
+                                                style={{ color: currentTheme.textColor }}
+                                            >
+                                                <MdMoreHoriz size={24} />
+                                            </button>
+                                        )}
+
+                                        {activeMenuId === campaign.id && (
+                                            <div
+                                                ref={menuRef}
+                                                className="absolute right-0 top-full mt-2 w-48 rounded-xl shadow-xl border z-50 overflow-hidden animate-in fade-in slide-in-from-top-2"
+                                                style={{
+                                                    backgroundColor: currentTheme.cardBg,
+                                                    borderColor: currentTheme.borderColor,
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <div className="flex flex-col py-1">
+                                                    {canViewCampaign && (
+                                                        <button
+                                                            onClick={() => router.push(`/campaigns/analytics/${campaign.id}`)}
+                                                            className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
+                                                            style={{ color: currentTheme.headingColor }}
+                                                        >
+                                                            <MdBarChart size={18} className="opacity-70" />
+                                                            View Analytics
+                                                        </button>
+                                                    )}
+                                                    {canEditCampaign && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => router.push(`/campaigns/edit/${campaign.id}`)}
+                                                                className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
+                                                                style={{ color: currentTheme.headingColor }}
+                                                            >
+                                                                <MdEdit size={18} className="opacity-70" />
+                                                                Edit Campaign
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleToggleStatus(campaign.id, campaign.status)}
+                                                                className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
+                                                                style={{ color: currentTheme.textColor }}
+                                                            >
+                                                                {campaign.status === 'active' ? <MdPauseCircle size={18} className="text-amber-500" /> : <MdPlayArrow size={18} className="text-emerald-500" />}
+                                                                {campaign.status === 'active' ? 'Pause Campaign' : 'Resume Campaign'}
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    {canDeleteCampaign && (
+                                                        <>
+                                                            <div className="h-px mx-4 my-1 opacity-20" style={{ backgroundColor: currentTheme.borderColor }} />
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    toggleMenu(campaign.id, e);
+                                                                    handleDeleteClick(campaign.id);
+                                                                }}
+                                                                className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors flex items-center gap-2"
+                                                            >
+                                                                <MdDelete size={18} />
+                                                                Delete
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4 mb-6">
+                                    <div className="p-3 rounded-lg" style={{ backgroundColor: currentTheme.background }}>
+                                        <p className="text-xs font-bold uppercase" style={{ color: currentTheme.textColor, opacity: 0.8 }}>Reach</p>
+                                        <p className="text-lg font-bold" style={{ color: currentTheme.headingColor }}>
+                                            {campaign.reach || "-"}
+                                        </p>
+                                    </div>
+                                    <div className="p-3 rounded-lg" style={{ backgroundColor: currentTheme.background }}>
+                                        <p className="text-xs font-bold uppercase" style={{ color: currentTheme.textColor, opacity: 0.8 }}>Clicks</p>
+                                        <p className="text-lg font-bold" style={{ color: currentTheme.headingColor }}>
+                                            {campaign.clicks || "-"}
                                         </p>
                                     </div>
                                 </div>
 
-                                <div className="relative">
-                                    {(canViewCampaign || canEditCampaign || canDeleteCampaign) && (
-                                        <button
-                                            onClick={(e) => toggleMenu(campaign.id, e)}
-                                            className="hover:opacity-80 p-1 rounded-full hover:bg-black/5 transition-colors"
-                                            style={{ color: currentTheme.textColor }}
-                                        >
-                                            <MdMoreHoriz size={24} />
-                                        </button>
-                                    )}
+                                <div className="flex items-center justify-between border-t pt-4" style={{ borderColor: currentTheme.borderColor }}>
+                                    <div className="flex items-center gap-1.5">
+                                        {campaign.status === 'active' && <MdCheckCircle className="text-emerald-500" size={16} />}
+                                        {(campaign.status === 'inactive' || campaign.status === 'paused') && <MdPauseCircle className="text-amber-500" size={16} />}
+                                        {campaign.status === 'draft' && <MdSchedule className="text-blue-500" size={16} />}
 
-                                    {activeMenuId === campaign.id && (
-                                        <div
-                                            ref={menuRef}
-                                            className="absolute right-0 top-full mt-2 w-48 rounded-xl shadow-xl border z-50 overflow-hidden animate-in fade-in slide-in-from-top-2"
-                                            style={{
-                                                backgroundColor: currentTheme.cardBg,
-                                                borderColor: currentTheme.borderColor,
-                                            }}
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            <div className="flex flex-col py-1">
-                                                {canViewCampaign && (
-                                                    <button
-                                                        onClick={() => router.push(`/campaigns/analytics/${campaign.id}`)}
-                                                        className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
-                                                        style={{ color: currentTheme.headingColor }}
-                                                    >
-                                                        <MdBarChart size={18} className="opacity-70" />
-                                                        View Analytics
-                                                    </button>
-                                                )}
-                                                {canEditCampaign && (
-                                                    <>
-                                                        <button
-                                                            onClick={() => router.push(`/campaigns/edit/${campaign.id}`)}
-                                                            className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
-                                                            style={{ color: currentTheme.headingColor }}
-                                                        >
-                                                            <MdEdit size={18} className="opacity-70" />
-                                                            Edit Campaign
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleToggleStatus(campaign.id, campaign.status)}
-                                                            className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-black/5 transition-colors flex items-center gap-2"
-                                                            style={{ color: currentTheme.textColor }}
-                                                        >
-                                                            {campaign.status === 'active' ? <MdPauseCircle size={18} className="text-amber-500" /> : <MdPlayArrow size={18} className="text-emerald-500" />}
-                                                            {campaign.status === 'active' ? 'Pause Campaign' : 'Resume Campaign'}
-                                                        </button>
-                                                    </>
-                                                )}
-                                                {canDeleteCampaign && (
-                                                    <>
-                                                        <div className="h-px mx-4 my-1 opacity-20" style={{ backgroundColor: currentTheme.borderColor }} />
-                                                        <button
-                                                            onClick={(e) => {
-                                                                toggleMenu(campaign.id, e);
-                                                                handleDeleteClick(campaign.id);
-                                                            }}
-                                                            className="w-full px-4 py-2.5 text-left text-sm font-semibold hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500 transition-colors flex items-center gap-2"
-                                                        >
-                                                            <MdDelete size={18} />
-                                                            Delete
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4 mb-6">
-                                <div className="p-3 rounded-lg" style={{ backgroundColor: currentTheme.background }}>
-                                    <p className="text-xs font-bold uppercase" style={{ color: currentTheme.textColor, opacity: 0.8 }}>Reach</p>
-                                    <p className="text-lg font-bold" style={{ color: currentTheme.headingColor }}>
-                                        {campaign.reach || "-"}
-                                    </p>
-                                </div>
-                                <div className="p-3 rounded-lg" style={{ backgroundColor: currentTheme.background }}>
-                                    <p className="text-xs font-bold uppercase" style={{ color: currentTheme.textColor, opacity: 0.8 }}>Clicks</p>
-                                    <p className="text-lg font-bold" style={{ color: currentTheme.headingColor }}>
-                                        {campaign.clicks || "-"}
+                                        <span className={`text-xs font-bold capitalize ${campaign.status === 'active' ? 'text-emerald-600' :
+                                            (campaign.status === 'inactive' || campaign.status === 'paused') ? 'text-amber-600' :
+                                                'text-blue-600'
+                                            }`}>
+                                            {campaign.status}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs font-bold" style={{ color: currentTheme.textColor }}>
+                                        {campaign.scheduled_start_date ? new Date(campaign.scheduled_start_date).toLocaleDateString() : 'TBD'}
+                                        {campaign.scheduled_end_date ? ` - ${new Date(campaign.scheduled_end_date).toLocaleDateString()}` : ''}
                                     </p>
                                 </div>
                             </div>
+                        ))
+                    )}
+                </div>
 
-                            <div className="flex items-center justify-between border-t pt-4" style={{ borderColor: currentTheme.borderColor }}>
-                                <div className="flex items-center gap-1.5">
-                                    {campaign.status === 'active' && <MdCheckCircle className="text-emerald-500" size={16} />}
-                                    {(campaign.status === 'inactive' || campaign.status === 'paused') && <MdPauseCircle className="text-amber-500" size={16} />}
-                                    {campaign.status === 'draft' && <MdSchedule className="text-blue-500" size={16} />}
-
-                                    <span className={`text-xs font-bold capitalize ${campaign.status === 'active' ? 'text-emerald-600' :
-                                        (campaign.status === 'inactive' || campaign.status === 'paused') ? 'text-amber-600' :
-                                            'text-blue-600'
-                                        }`}>
-                                        {campaign.status}
-                                    </span>
-                                </div>
-                                <p className="text-xs font-bold" style={{ color: currentTheme.textColor }}>
-                                    {campaign.scheduled_start_date ? new Date(campaign.scheduled_start_date).toLocaleDateString() : 'TBD'}
-                                    {campaign.scheduled_end_date ? ` - ${new Date(campaign.scheduled_end_date).toLocaleDateString()}` : ''}
-                                </p>
-                            </div>
-                        </div>
-                    ))
+                {/* Pagination Controls */}
+                {totalPages > 1 && (
+                    <Pagination
+                        pagination={{
+                            page: currentPage,
+                            limit: itemsPerPage,
+                            total: filteredCampaigns.length,
+                            totalPages: totalPages,
+                        }}
+                        onPageChange={handlePageChange}
+                    />
                 )}
+
+                <ConfirmModal
+                    isOpen={canDeleteCampaign && !!deleteId}
+                    onClose={() => setDeleteId(null)}
+                    onConfirm={confirmDelete}
+                    title="Delete Campaign"
+                    message="Are you sure you want to delete this campaign? This action cannot be undone."
+                    confirmLabel="Delete Campaign"
+                />
             </div>
-
-            {/* Pagination Controls */}
-           {totalPages > 1 && (
-    <Pagination
-        pagination={{
-            page: currentPage,
-            limit: itemsPerPage,
-            total: filteredCampaigns.length,
-            totalPages: totalPages,
-        }}
-        onPageChange={handlePageChange}
-    />
-)}
-
-            <ConfirmModal
-                isOpen={canDeleteCampaign && !!deleteId}
-                onClose={() => setDeleteId(null)}
-                onConfirm={confirmDelete}
-                title="Delete Campaign"
-                message="Are you sure you want to delete this campaign? This action cannot be undone."
-                confirmLabel="Delete Campaign"
-            />
-        </div>
+        </PermissionGuard>
     );
 }

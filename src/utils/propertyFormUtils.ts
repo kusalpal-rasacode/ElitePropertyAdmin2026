@@ -43,6 +43,8 @@ export interface PropertyFormData {
   rent_price?: string | number;
   rent_frequency?: "Monthly" | "Weekly" | "Daily" | "Yearly";
   security_deposit?: string | number;
+  start_date?: string;
+  end_date?: string;
   available_from?: string;
   lease_duration?: string | number;
   is_furnished?: boolean;
@@ -178,6 +180,8 @@ export const getInitialFormData = (): PropertyFormData => ({
   rent_price: "",
   rent_frequency: "Monthly",
   security_deposit: "",
+  start_date: "",
+    end_date: "",
   available_from: "",
   lease_duration: "",
   is_furnished: false,
@@ -227,6 +231,8 @@ export const propertyToFormData = (property: any): PropertyFormData => ({
   seller_notes: property.seller_notes || "",
   rent_price: property.rent_price?.toString() || "",
   rent_frequency: property.rent_frequency || "Monthly",
+  start_date: property.start_date ? property.start_date.split("T")[0] : "",
+  end_date: property.end_date ? property.end_date.split("T")[0] : "",
   security_deposit: property.security_deposit?.toString() || "",
   available_from: property.available_from ? property.available_from.split("T")[0] : "",
   lease_duration: property.lease_duration?.toString() || "",
@@ -423,6 +429,16 @@ export const propertyListingSchema = yup.object({
           .min(0, "Must be 0 or greater"),
       otherwise: (schema) => schema.notRequired().nullable(),
     }),
+    start_date: yup.string().when("listing_type", {
+    is: (val: string) => val === "Rent" || val === "Both",
+    then: (schema) => schema.required("Available date is required"),
+    otherwise: (schema) => schema.notRequired().nullable(),
+  }),
+  end_date: yup.string().when("listing_type", {
+    is: (val: string) => val === "Rent" || val === "Both",
+    then: (schema) => schema.required("Available date is required"),
+    otherwise: (schema) => schema.notRequired().nullable(),
+  }),
   available_from: yup.string().when("listing_type", {
     is: (val: string) => val === "Rent" || val === "Both",
     then: (schema) => schema.required("Available date is required"),

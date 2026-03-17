@@ -28,6 +28,8 @@ import {
 import { toast } from "react-hot-toast";
 import { useModulePermission } from "@/hooks/useModulePermission";
 import { Pagination } from "@/components/common/Pagination";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
+
 const LIMIT = 5;
 
 export default function UsersPage() {
@@ -172,375 +174,351 @@ export default function UsersPage() {
     );
   }
 
-  if (!canViewUsers) {
-    return (
-      <div className="max-w-[1600px] mx-auto py-10">
-        <div className="rounded-xl border px-5 py-4 text-sm font-medium" style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor }}>
-          You do not have `view` permission for Users.
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="max-w-[1600px] mx-auto space-y-8">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div>
-          <h1
-            className="text-2xl font-bold tracking-tight"
-            style={{ color: currentTheme.headingColor }}
-          >
-            User Management
-          </h1>
-          <p
-            className="font-medium text-sm"
-            style={{ color: currentTheme.textColor }}
-          >
-            Control user access, roles, and account status. (
-            {filteredUsers.length} users)
-          </p>
-        </div>
-
-        <div className="flex gap-3">
-          <div className="relative group">
-            <MdSearch
-              className="absolute left-3 top-1/2 -translate-y-1/2 transition-colors"
-              size={20}
+    <PermissionGuard module="user_management" action="view">
+      <div className="max-w-[1600px] mx-auto space-y-8">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h1
+              className="text-2xl font-bold tracking-tight"
+              style={{ color: currentTheme.headingColor }}
+            >
+              User Management
+            </h1>
+            <p
+              className="font-medium text-sm"
               style={{ color: currentTheme.textColor }}
-            />
-            <input
-              type="text"
-              placeholder="Search users..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2.5 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-100 w-64 transition-all"
+            >
+              Control user access, roles, and account status. (
+              {filteredUsers.length} users)
+            </p>
+          </div>
+
+          <div className="flex gap-3">
+            <div className="relative group">
+              <MdSearch
+                className="absolute left-3 top-1/2 -translate-y-1/2 transition-colors"
+                size={20}
+                style={{ color: currentTheme.textColor }}
+              />
+              <input
+                type="text"
+                placeholder="Search users..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2.5 border rounded-lg text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-100 w-64 transition-all"
+                style={{
+                  backgroundColor: currentTheme.cardBg,
+                  borderColor: currentTheme.borderColor,
+                  color: currentTheme.textColor,
+                }}
+              />
+            </div>
+            <button
+              onClick={fetchUsers}
+              className="px-4 py-2.5 border rounded-lg hover:brightness-95 font-bold text-sm flex items-center gap-2 transition-all"
               style={{
                 backgroundColor: currentTheme.cardBg,
                 borderColor: currentTheme.borderColor,
-                color: currentTheme.textColor,
+                color: currentTheme.headingColor,
               }}
-            />
-          </div>
-          <button
-            onClick={fetchUsers}
-            className="px-4 py-2.5 border rounded-lg hover:brightness-95 font-bold text-sm flex items-center gap-2 transition-all"
-            style={{
-              backgroundColor: currentTheme.cardBg,
-              borderColor: currentTheme.borderColor,
-              color: currentTheme.headingColor,
-            }}
-          >
-            <MdFilterList size={18} />
-            Refresh
-          </button>
-          {canAddUsers && (
-            <button
-              onClick={() => router.push("/users/add")}
-              className="px-4 py-2.5 rounded-lg text-white font-bold text-sm flex items-center gap-2 transition-all hover:brightness-110 shadow-sm"
-              style={{ backgroundColor: currentTheme.primary }}
             >
-              <MdPersonAdd size={18} />
-              Add User
+              <MdFilterList size={18} />
+              Refresh
             </button>
-          )}
+            {canAddUsers && (
+              <button
+                onClick={() => router.push("/users/add")}
+                className="px-4 py-2.5 rounded-lg text-white font-bold text-sm flex items-center gap-2 transition-all hover:brightness-110 shadow-sm"
+                style={{ backgroundColor: currentTheme.primary }}
+              >
+                <MdPersonAdd size={18} />
+                Add User
+              </button>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Table */}
-      <div
-        className="rounded-2xl border shadow-sm overflow-hidden backdrop-blur-md"
-        style={{
-          backgroundColor: currentTheme.cardBg + "E6",
-          borderColor: currentTheme.borderColor,
-        }}
-      >
-        <table className="w-full text-left">
-          <thead
-            className="border-b"
-            style={{
-              backgroundColor: currentTheme.background,
-              borderColor: currentTheme.borderColor,
-            }}
-          >
-            <tr>
-              <th
-                className="px-6 py-4 text-xs font-bold uppercase"
-                style={{ color: currentTheme.textColor }}
-              >
-                User Profile
-              </th>
-              <th
-                className="px-6 py-4 text-xs font-bold uppercase"
-                style={{ color: currentTheme.textColor }}
-              >
-                Plan
-              </th>
-              
-              <th
-                className="px-6 py-4 text-xs font-bold uppercase"
-                style={{ color: currentTheme.textColor }}
-              >
-                Contact Info
-              </th>
-              <th
-                className="px-6 py-4 text-xs font-bold uppercase"
-                style={{ color: currentTheme.textColor }}
-              >
-                Role
-              </th>
-              {/* <th
-                className="px-6 py-4 text-xs font-bold uppercase"
-                style={{ color: currentTheme.textColor }}
-              >
-                Status
-              </th> */}
-              <th
-                className="px-6 py-4 text-xs font-bold uppercase"
-                style={{ color: currentTheme.textColor }}
-              >
-                Subscription
-              </th>
-              <th className="px-6 py-4 text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredUsers.length === 0 ? (
+        {/* Table */}
+        <div
+          className="rounded-2xl border shadow-sm overflow-hidden backdrop-blur-md"
+          style={{
+            backgroundColor: currentTheme.cardBg + "E6",
+            borderColor: currentTheme.borderColor,
+          }}
+        >
+          <table className="w-full text-left">
+            <thead
+              className="border-b"
+              style={{
+                backgroundColor: currentTheme.background,
+                borderColor: currentTheme.borderColor,
+              }}
+            >
               <tr>
-                <td
-                  colSpan={7}
-                  className="px-6 py-12 text-center"
+                <th
+                  className="px-6 py-4 text-xs font-bold uppercase"
                   style={{ color: currentTheme.textColor }}
                 >
-                  No users found
-                </td>
+                  User Profile
+                </th>
+                <th
+                  className="px-6 py-4 text-xs font-bold uppercase"
+                  style={{ color: currentTheme.textColor }}
+                >
+                  Plan
+                </th>
+                
+                <th
+                  className="px-6 py-4 text-xs font-bold uppercase"
+                  style={{ color: currentTheme.textColor }}
+                >
+                  Contact Info
+                </th>
+                <th
+                  className="px-6 py-4 text-xs font-bold uppercase"
+                  style={{ color: currentTheme.textColor }}
+                >
+                  Role
+                </th>
+                {/* <th
+                  className="px-6 py-4 text-xs font-bold uppercase"
+                  style={{ color: currentTheme.textColor }}
+                >
+                  Status
+                </th> */}
+                <th
+                  className="px-6 py-4 text-xs font-bold uppercase"
+                  style={{ color: currentTheme.textColor }}
+                >
+                  Subscription
+                </th>
+                <th className="px-6 py-4 text-right">Action</th>
               </tr>
-            ) : (
-              paginatedUsers.map((user) => {
-                const planRole = getPlanRole(user);
-                const status = getUserStatus(user);
-                const joinDate = getUserJoinDate(user);
-                const fullName = `${user.first_name} ${user.last_name}`;
-                const isActionPending = actionLoading === user.id?.toString();
-                const planType = user.subscription?.plan?.plan_type;
-                const roleDisplay = (() => {
-                  const roles = user.roles;
-                  if (!roles || roles.length === 0) return null;
-                  const r = roles[0];
-                  const name = typeof r === "string" ? r : r?.Name ?? r?.name ?? "";
-                  return name
-                    .split("_")
-                    .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-                    .join(" ");
-                })();
-
-                return (
-                  <tr
-                    key={user.id}
-                    className="hover:bg-gray-500/5 transition-colors border-b last:border-0"
-                    style={{ borderColor: currentTheme.borderColor }}
+            </thead>
+            <tbody>
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="px-6 py-12 text-center"
+                    style={{ color: currentTheme.textColor }}
                   >
-                    {/* User Profile */}
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-10 h-10 rounded-full flex items-center justify-center font-bold border"
-                          style={{
-                            backgroundColor: currentTheme.background,
-                            borderColor: currentTheme.borderColor,
-                            color: currentTheme.headingColor,
-                          }}
-                        >
-                          {fullName.charAt(0).toUpperCase()}
-                        </div>
-                        <div>
-                          <p
-                            className="font-bold text-sm"
-                            style={{ color: currentTheme.headingColor }}
-                          >
-                            {fullName}
-                          </p>
-                          <p
-                            className="text-xs"
-                            style={{ color: currentTheme.textColor }}
-                          >
-                            subscribed {formatDate(joinDate)}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
+                    No users found
+                  </td>
+                </tr>
+              ) : (
+                paginatedUsers.map((user) => {
+                  const planRole = getPlanRole(user);
+                  const status = getUserStatus(user);
+                  const joinDate = getUserJoinDate(user);
+                  const fullName = `${user.first_name} ${user.last_name}`;
+                  const isActionPending = actionLoading === user.id?.toString();
+                  const planType = user.subscription?.plan?.plan_type;
+                  const roleDisplay = (() => {
+                    const roles = user.roles;
+                    if (!roles || roles.length === 0) return null;
+                    const r = roles[0];
+                    const name = typeof r === "string" ? r : r?.Name ?? r?.name ?? "";
+                    return name
+                      .split("_")
+                      .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+                      .join(" ");
+                  })();
 
-                    {/* Plan */}
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-md text-xs font-bold border ${getPlanBadgeClass(planType)}`}
-                      >
-                        {user.subscription?.plan?.display_name ?? planRole}
-                      </span>
-                    </td>
-
-                    {/* Contact */}
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1">
-                        <div
-                          className="flex items-center gap-2 text-xs font-medium"
-                          style={{ color: currentTheme.textColor }}
-                        >
-                          <MdOutlineMail />{" "}
-                          {user.email || user.username || "N/A"}
-                        </div>
-                        <div
-                          className="flex items-center gap-2 text-xs font-medium"
-                          style={{ color: currentTheme.textColor }}
-                        >
-                          <MdOutlinePhone /> {user.phone_number || "N/A"}
-                        </div>
-                      </div>
-                    </td>
-
-                    {/* Role */}
-                    <td className="px-6 py-4">
-                      {roleDisplay ? (
-                        <span
-                          className="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-md text-xs font-bold border"
-                          style={{
-                            backgroundColor: currentTheme.background,
-                            borderColor: currentTheme.borderColor,
-                            color: currentTheme.headingColor,
-                          }}
-                        >
-                          {roleDisplay}
-                        </span>
-                      ) : (
-                        <span className="text-xs" style={{ color: currentTheme.textColor }}>
-                          —
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Status */}
-                    {/* <td className="px-6 py-4">
-                      {status === "Active" ? (
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600">
-                          <MdCheckCircle size={16} /> Active
-                        </div>
-                      ) : (
-                        <div
-                          className="flex items-center gap-1.5 text-xs font-bold"
-                          style={{ color: currentTheme.textColor }}
-                        >
-                          <MdBlock size={16} /> Inactive
-                        </div>
-                      )}
-                    </td> */}
-
-                    {/* Subscription dates */}
-                    <td className="px-6 py-4">
-                      {user.subscription ? (
-                        <div className="flex flex-col gap-0.5">
-                          <p
-                            className="text-xs font-medium"
-                            style={{ color: currentTheme.headingColor }}
-                          >
-                            Until {formatDate(user.subscription.end_date)}
-                          </p>
-                          <p
-                            className="text-xs"
-                            style={{ color: currentTheme.textColor }}
-                          >
-                            {user.subscription.plan?.price === 0
-                              ? "Free"
-                              : `₹${user.subscription.plan?.price}/mo`}
-                          </p>
-                        </div>
-                      ) : (
-                        <span
-                          className="text-xs"
-                          style={{ color: currentTheme.textColor }}
-                        >
-                          No subscription
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Action */}
-                    <td className="px-6 py-4 text-right">
-                      <div className="relative inline-block">
-                        {canDeleteUsers && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setMenuOpenId(
-                                menuOpenId === user.id?.toString()
-                                  ? null
-                                  : user.id?.toString() ?? null,
-                              );
-                            }}
-                            disabled={isActionPending}
-                            className="p-2 rounded-full transition-all hover:bg-gray-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                            style={{ color: currentTheme.textColor }}
-                          >
-                            <MdMoreHoriz size={20} />
-                          </button>
-                        )}
-
-                        {/* Dropdown */}
-                        {menuOpenId === user.id?.toString() && (
+                  return (
+                    <tr
+                      key={user.id}
+                      className="hover:bg-gray-500/5 transition-colors border-b last:border-0"
+                      style={{ borderColor: currentTheme.borderColor }}
+                    >
+                      {/* User Profile */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
                           <div
-                            className="absolute right-0 mt-1 w-40 rounded-lg border shadow-lg z-20 overflow-hidden"
+                            className="w-10 h-10 rounded-full flex items-center justify-center font-bold border"
                             style={{
-                              backgroundColor: currentTheme.cardBg,
+                              backgroundColor: currentTheme.background,
                               borderColor: currentTheme.borderColor,
+                              color: currentTheme.headingColor,
                             }}
-                            onClick={(e) => e.stopPropagation()}
                           >
-                            {canDeleteUsers && (
-                              <button
-                                onClick={() => {
-                                  setDeleteTargetId(user.id?.toString() ?? null);
-                                  setMenuOpenId(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50/10 transition-colors"
-                              >
-                                <MdDeleteOutline size={16} />
-                                Delete User
-                              </button>
-                            )}
+                            {fullName.charAt(0).toUpperCase()}
                           </div>
+                          <div>
+                            <p
+                              className="font-bold text-sm"
+                              style={{ color: currentTheme.headingColor }}
+                            >
+                              {fullName}
+                            </p>
+                            <p
+                              className="text-xs"
+                              style={{ color: currentTheme.textColor }}
+                            >
+                              subscribed {formatDate(joinDate)}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Plan */}
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-md text-xs font-bold border ${getPlanBadgeClass(planType)}`}
+                        >
+                          {user.subscription?.plan?.display_name ?? planRole}
+                        </span>
+                      </td>
+
+                      {/* Contact */}
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-1">
+                          <div
+                            className="flex items-center gap-2 text-xs font-medium"
+                            style={{ color: currentTheme.textColor }}
+                          >
+                            <MdOutlineMail />{" "}
+                            {user.email || user.username || "N/A"}
+                          </div>
+                          <div
+                            className="flex items-center gap-2 text-xs font-medium"
+                            style={{ color: currentTheme.textColor }}
+                          >
+                            <MdOutlinePhone /> {user.phone_number || "N/A"}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Role */}
+                      <td className="px-6 py-4">
+                        {roleDisplay ? (
+                          <span
+                            className="inline-flex items-center whitespace-nowrap px-2.5 py-1 rounded-md text-xs font-bold border"
+                            style={{
+                              backgroundColor: currentTheme.background,
+                              borderColor: currentTheme.borderColor,
+                              color: currentTheme.headingColor,
+                            }}
+                          >
+                            {roleDisplay}
+                          </span>
+                        ) : (
+                          <span className="text-xs" style={{ color: currentTheme.textColor }}>
+                            —
+                          </span>
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                      </td>
+
+                      {/* Subscription dates */}
+                      <td className="px-6 py-4">
+                        {user.subscription ? (
+                          <div className="flex flex-col gap-0.5">
+                            <p
+                              className="text-xs font-medium"
+                              style={{ color: currentTheme.headingColor }}
+                            >
+                              Until {formatDate(user.subscription.end_date)}
+                            </p>
+                            <p
+                              className="text-xs"
+                              style={{ color: currentTheme.textColor }}
+                            >
+                              {user.subscription.plan?.price === 0
+                                ? "Free"
+                                : `₹${user.subscription.plan?.price}/mo`}
+                            </p>
+                          </div>
+                        ) : (
+                          <span
+                            className="text-xs"
+                            style={{ color: currentTheme.textColor }}
+                          >
+                            No subscription
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Action */}
+                      <td className="px-6 py-4 text-right">
+                        <div className="relative inline-block">
+                          {canDeleteUsers && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setMenuOpenId(
+                                  menuOpenId === user.id?.toString()
+                                    ? null
+                                    : user.id?.toString() ?? null,
+                                );
+                              }}
+                              disabled={isActionPending}
+                              className="p-2 rounded-full transition-all hover:bg-gray-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                              style={{ color: currentTheme.textColor }}
+                            >
+                              <MdMoreHoriz size={20} />
+                            </button>
+                          )}
+
+                          {/* Dropdown */}
+                          {menuOpenId === user.id?.toString() && (
+                            <div
+                              className="absolute right-0 mt-1 w-40 rounded-lg border shadow-lg z-20 overflow-hidden"
+                              style={{
+                                backgroundColor: currentTheme.cardBg,
+                                borderColor: currentTheme.borderColor,
+                              }}
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {canDeleteUsers && (
+                                <button
+                                  onClick={() => {
+                                    setDeleteTargetId(user.id?.toString() ?? null);
+                                    setMenuOpenId(null);
+                                  }}
+                                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50/10 transition-colors"
+                                >
+                                  <MdDeleteOutline size={16} />
+                                  Delete User
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {!loading && filteredUsers.length > LIMIT && (
+          <Pagination
+            pagination={{
+              page: currentPage,
+              limit: LIMIT,
+              total: filteredUsers.length,
+              totalPages: totalPages,
+            }}
+            onPageChange={setCurrentPage}
+          />
+        )}
+
+        <ConfirmModal
+          isOpen={canDeleteUsers && !!deleteTargetId}
+          onClose={() => setDeleteTargetId(null)}
+          onConfirm={handleDeleteUser}
+          title="Delete User"
+          message="Are you sure you want to delete this user? This action cannot be undone."
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+          isLoading={!!actionLoading}
+        />
       </div>
-
-      {/* Pagination */}
-      {!loading && filteredUsers.length > LIMIT && (
-  <Pagination
-    pagination={{
-      page: currentPage,
-      limit: LIMIT,
-      total: filteredUsers.length,
-      totalPages: totalPages,
-    }}
-    onPageChange={setCurrentPage}
-  />
-)}
-
-      <ConfirmModal
-        isOpen={canDeleteUsers && !!deleteTargetId}
-        onClose={() => setDeleteTargetId(null)}
-        onConfirm={handleDeleteUser}
-        title="Delete User"
-        message="Are you sure you want to delete this user? This action cannot be undone."
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-        isLoading={!!actionLoading}
-      />
-    </div>
+    </PermissionGuard>
   );
 }

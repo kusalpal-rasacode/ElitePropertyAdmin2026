@@ -204,8 +204,12 @@ function ReviewPropertyContent() {
                             <span className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-lg text-xs font-bold shadow-sm" style={{ color: currentTheme.headingColor }}>
                                 {property.transaction_type || "Sale"}
                             </span>
-                            <span className={`px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm ${isPendingProperty ? 'bg-orange-500' : 'bg-emerald-500'}`}>
-                                {isPendingProperty ? 'Pending' : 'Active'}
+                            <span className={`px-3 py-1 rounded-lg text-xs font-bold text-white shadow-sm ${
+                                String(property.status).toLowerCase() === 'rejected' ? 'bg-rose-500' :
+                                isPendingProperty ? 'bg-orange-500' : 'bg-emerald-500'
+                            }`}>
+                                {String(property.status).toLowerCase() === 'rejected' ? 'Rejected' :
+                                 isPendingProperty ? 'Pending' : 'Active'}
                             </span>
                         </div>
                     </div>

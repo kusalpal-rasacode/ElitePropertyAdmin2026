@@ -7,6 +7,8 @@ import { PermissionsHeader } from "@/components/permissions/PermissionsHeader";
 import { RoleSelector } from "@/components/permissions/RoleSelector";
 import { PermissionsTable } from "@/components/permissions/PermissionsTable";
 
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
+
 export default function PermissionsPage() {
   const {
     roles,
@@ -39,60 +41,62 @@ export default function PermissionsPage() {
   } = usePermissions();
 
   return (
-    <div className="max-w-[1600px] mx-auto py-4 space-y-8">
-      <PermissionsHeader saving={saving} loading={loading} onSave={handleSave} />
+    <PermissionGuard requireSuperAdmin>
+      <div className="max-w-[1600px] mx-auto py-4 space-y-8">
+        <PermissionsHeader saving={saving} loading={loading} onSave={handleSave} />
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Sidebar — role selector */}
-        <div className="lg:col-span-1 space-y-6">
-          <RoleSelector
-            roles={roles}
-            selectedRole={selectedRole}
-            loading={loading}
-            isSuperAdmin={isSuperAdmin}
-            onRoleChange={handleRoleChange}
-          />
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Sidebar — role selector */}
+          <div className="lg:col-span-1 space-y-6">
+            <RoleSelector
+              roles={roles}
+              selectedRole={selectedRole}
+              loading={loading}
+              isSuperAdmin={isSuperAdmin}
+              onRoleChange={handleRoleChange}
+            />
+          </div>
+
+          {/* Main — permissions matrix */}
+          <div className="lg:col-span-3">
+            <PermissionsTable
+              activeModules={activeModules}
+              permissions={permissions}
+              isSuperAdmin={isSuperAdmin}
+              loading={loading}
+              editingModuleKey={editingModuleKey}
+              editingModuleLabel={editingModuleLabel}
+              isAddingModule={isAddingModule}
+              newModuleLabel={newModuleLabel}
+              onEditLabelChange={setEditingModuleLabel}
+              onEditStart={handleEditModuleStart}
+              onEditSave={handleEditModuleSave}
+              onEditCancel={handleEditModuleCancel}
+              onDeleteClick={handleRemoveModuleClick}
+              onToggle={(moduleKey: ModuleKey, actionKey: ActionKey) =>
+                handleToggle(moduleKey, actionKey)
+              }
+              onNewModuleLabelChange={setNewModuleLabel}
+              onAddModule={handleAddModule}
+              onCancelAddModule={() => setIsAddingModule(false)}
+              onStartAddingModule={() => setIsAddingModule(true)}
+            />
+          </div>
         </div>
 
-        {/* Main — permissions matrix */}
-        <div className="lg:col-span-3">
-          <PermissionsTable
-            activeModules={activeModules}
-            permissions={permissions}
-            isSuperAdmin={isSuperAdmin}
-            loading={loading}
-            editingModuleKey={editingModuleKey}
-            editingModuleLabel={editingModuleLabel}
-            isAddingModule={isAddingModule}
-            newModuleLabel={newModuleLabel}
-            onEditLabelChange={setEditingModuleLabel}
-            onEditStart={handleEditModuleStart}
-            onEditSave={handleEditModuleSave}
-            onEditCancel={handleEditModuleCancel}
-            onDeleteClick={handleRemoveModuleClick}
-            onToggle={(moduleKey: ModuleKey, actionKey: ActionKey) =>
-              handleToggle(moduleKey, actionKey)
-            }
-            onNewModuleLabelChange={setNewModuleLabel}
-            onAddModule={handleAddModule}
-            onCancelAddModule={() => setIsAddingModule(false)}
-            onStartAddingModule={() => setIsAddingModule(true)}
-          />
-        </div>
+        <ConfirmModal
+          isOpen={isDeleteModalOpen}
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setModuleToDelete(null);
+          }}
+          onConfirm={confirmRemoveModule}
+          title="Delete Module?"
+          message={`Are you sure you want to delete the "${moduleToDelete?.label}" module? This action cannot be undone.`}
+          confirmLabel="Delete"
+          cancelLabel="Cancel"
+        />
       </div>
-
-      <ConfirmModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => {
-          setIsDeleteModalOpen(false);
-          setModuleToDelete(null);
-        }}
-        onConfirm={confirmRemoveModule}
-        title="Delete Module?"
-        message={`Are you sure you want to delete the "${moduleToDelete?.label}" module? This action cannot be undone.`}
-        confirmLabel="Delete"
-        cancelLabel="Cancel"
-      />
-    </div>
+    </PermissionGuard>
   );
-}
+}

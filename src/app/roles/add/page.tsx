@@ -1,5 +1,10 @@
 import AddRoleForm from "./Form";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
 
 export default function AddRolePage() {
-    return <AddRoleForm />;
+    return (
+        <PermissionGuard requireSuperAdmin>
+            <AddRoleForm />
+        </PermissionGuard>
+    );
 }

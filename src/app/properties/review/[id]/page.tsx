@@ -8,7 +8,8 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { getPropertyByIdService, getPendingPropertyByIdService, approveProperty, rejectProperty } from "@/services/properties.service";
 import { PropertyData } from "@/types/properties.types";
 import { showSuccessToast, showErrorToast } from "@/utils/toast";
-import { ConfirmModal } from "@/components/common/ConfirmModal"; // IMPORT CONFIRM MODAL
+import { ConfirmModal } from "@/components/common/ConfirmModal";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
 
 type InvestmentSummaryItem = {
     label: string;
@@ -16,16 +17,24 @@ type InvestmentSummaryItem = {
 };
 
 export default function ReviewPropertyPage() {
+    return (
+        <PermissionGuard module="properties" action="view">
+            <ReviewPropertyContent />
+        </PermissionGuard>
+    );
+}
+
+function ReviewPropertyContent() {
     const { currentTheme } = useTheme();
-    const params = useParams(); // To get property ID from URL
+    const params = useParams();
     const router = useRouter();
     const searchParams = useSearchParams();
-    const source = searchParams.get('source'); // Check if coming from pending list
+    const source = searchParams.get('source');
     const propertyId = Array.isArray(params.id) ? params.id[0] : params.id;
 
     const [property, setProperty] = useState<PropertyData | null>(null);
     const [loading, setLoading] = useState(true);
-    const [actionLoading, setActionLoading] = useState(false); // Separate loading for actions
+    const [actionLoading, setActionLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const [isPendingProperty, setIsPendingProperty] = useState(false);
@@ -68,19 +77,16 @@ export default function ReviewPropertyPage() {
         fetchProperty();
     }, [propertyId, source]);
 
-    // Open Modal for Approve
     const handleApproveClick = () => {
         setPendingAction('approve');
         setIsActionModalOpen(true);
     };
 
-    // Open Modal for Reject
     const handleRejectClick = () => {
         setPendingAction('reject');
         setIsActionModalOpen(true);
     };
 
-    // Confirm Action Handler
     const handleConfirmAction = async (reason?: string) => {
         if (!property || !pendingAction) return;
 
@@ -105,7 +111,6 @@ export default function ReviewPropertyPage() {
         }
     };
 
-
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[60vh]">
@@ -127,11 +132,10 @@ export default function ReviewPropertyPage() {
         );
     }
 
-    // Default image if none exist
-    // Determined image to display
     const displayImage = selectedImage || (property.images && property.images.length > 0
         ? property.images[0]
         : "https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&q=80&w=1000");
+
     const investmentSummaryItems: InvestmentSummaryItem[] = [
         property.arv !== undefined ? { label: "After Repair Value", value: property.arv } : null,
         property.repair_estimate !== undefined ? { label: "Est. Repair Costs", value: property.repair_estimate } : null,
@@ -141,8 +145,6 @@ export default function ReviewPropertyPage() {
 
     return (
         <div className="mx-auto space-y-8 pb-20">
-
-            {/* Header / Nav */}
             <div className="flex items-center justify-between">
                 <Link href="/properties" className="flex items-center gap-2 hover:opacity-70 transition-opacity" style={{ color: currentTheme.textColor }}>
                     <MdArrowBack size={20} />
@@ -173,7 +175,6 @@ export default function ReviewPropertyPage() {
                 )}
             </div>
 
-            {/* Confirm Modal */}
             <ConfirmModal
                 isOpen={isActionModalOpen}
                 onClose={() => setIsActionModalOpen(false)}
@@ -190,14 +191,8 @@ export default function ReviewPropertyPage() {
                 textareaPlaceholder="Please provide a reason for rejecting this property..."
             />
 
-
-            {/* Main Content Grid */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-
-                {/* Left Column - Images & Details */}
                 <div className="lg:col-span-2 space-y-6">
-
-                    {/* Main Image */}
                     <div className="aspect-video w-full rounded-2xl relative shadow-sm overflow-hidden group bg-gray-100">
                         <img
                             src={displayImage}
@@ -205,7 +200,6 @@ export default function ReviewPropertyPage() {
                             className="w-full h-full object-cover transition-transform duration-700 hover:scale-105"
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent pointer-events-none"></div>
-
                         <div className="absolute bottom-4 left-4 flex gap-2 pointer-events-none">
                             <span className="px-3 py-1 bg-white/90 backdrop-blur-md rounded-lg text-xs font-bold shadow-sm" style={{ color: currentTheme.headingColor }}>
                                 {property.transaction_type || "Sale"}
@@ -216,7 +210,6 @@ export default function ReviewPropertyPage() {
                         </div>
                     </div>
 
-                    {/* Thumbnail Gallery */}
                     {property.images && property.images.length > 1 && (
                         <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3">
                             {property.images.map((img, idx) => (
@@ -232,9 +225,7 @@ export default function ReviewPropertyPage() {
                         </div>
                     )}
 
-                    {/* Property Description */}
                     <div className="space-y-6">
-
                         {String(property.status).toLowerCase() === "rejected" && property.rejection_reason && (
                             <div className="rounded-3xl border shadow-sm p-6 bg-rose-50 border-rose-200">
                                 <h2 className="text-xl font-bold mb-3 text-rose-700 flex items-center gap-2">
@@ -247,13 +238,9 @@ export default function ReviewPropertyPage() {
                             </div>
                         )}
 
-                        {/* Description - Theme Aware */}
                         <div className="rounded-3xl border shadow-sm transition-all hover:shadow-md overflow-hidden relative"
                             style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}>
-
-                            {/* Subtle top decoration line */}
                             <div className="h-1 w-full bg-gradient-to-r from-transparent via-blue-500/50 to-transparent opacity-50"></div>
-
                             <div className="p-8">
                                 <h2 className="text-xl font-bold mb-4 flex items-center gap-2" style={{ color: currentTheme.headingColor }}>
                                     About this Property
@@ -264,7 +251,6 @@ export default function ReviewPropertyPage() {
                             </div>
                         </div>
 
-                        {/* Property Specifications - Clean & Brochure Style */}
                         <div className="rounded-3xl border shadow-sm p-8"
                             style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}>
                             <h3 className="text-lg font-bold mb-6 flex items-center gap-2" style={{ color: currentTheme.headingColor }}>
@@ -273,7 +259,6 @@ export default function ReviewPropertyPage() {
                                 </div>
                                 Property Specifications
                             </h3>
-
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-6 text-sm">
                                 {[
                                     { label: "Property Type", value: property.property_type },
@@ -298,7 +283,6 @@ export default function ReviewPropertyPage() {
                             </div>
                         </div>
 
-                        {/* Renovation Report */}
                         <div className="rounded-3xl border shadow-sm p-8"
                             style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}>
                             <h3 className="text-lg font-bold mb-6 flex items-center gap-2" style={{ color: currentTheme.headingColor }}>
@@ -307,7 +291,6 @@ export default function ReviewPropertyPage() {
                                 </div>
                                 Renovation Report
                             </h3>
-
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {[
                                     { label: "Exterior Paint", value: property.exterior_paint_required },
@@ -335,7 +318,6 @@ export default function ReviewPropertyPage() {
                             </div>
                         </div>
 
-                        {/* Seller Notes - Only if exists */}
                         {property.seller_notes && (
                             <div className="rounded-3xl border shadow-sm p-6"
                                 style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}>
@@ -351,14 +333,10 @@ export default function ReviewPropertyPage() {
                             </div>
                         )}
 
-                        {/* Financials - Dynamic Primary Color Card */}
                         {investmentSummaryItems.length > 0 && (
                             <div className="relative overflow-hidden rounded-3xl shadow-lg p-8"
                                 style={{ backgroundColor: currentTheme.cardBg, border: `1px solid ${currentTheme.borderColor}` }}>
-
-                                {/* Dynamic Primary color wash */}
                                 <div className="absolute inset-0 opacity-5" style={{ backgroundColor: currentTheme.primary }}></div>
-
                                 <div className="relative z-10">
                                     <h3 className="font-bold mb-6 text-xl flex items-center gap-2" style={{ color: currentTheme.headingColor }}>
                                         <div className="p-2 rounded-lg bg-opacity-10" style={{ backgroundColor: `${currentTheme.primary}20` }}>
@@ -366,7 +344,6 @@ export default function ReviewPropertyPage() {
                                         </div>
                                         Investment Summary
                                     </h3>
-
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         {investmentSummaryItems.map((item, i) => (
                                             <div key={i} className="flex flex-col gap-1 p-4 rounded-2xl border bg-opacity-30 h-full justify-center"
@@ -388,16 +365,9 @@ export default function ReviewPropertyPage() {
                     </div>
                 </div>
 
-                {/* Right Column - Key Info & actions */}
-                <div
-                    className="space-y-6 self-start"
-                    style={{ position: "sticky", top: "1.5rem" }}
-                >
-
-                    {/* Key Specs Card */}
+                <div className="space-y-6 self-start" style={{ position: "sticky", top: "1.5rem" }}>
                     <div className="p-6 rounded-2xl border shadow-sm space-y-6"
                         style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}>
-
                         <div>
                             <h1 className="text-2xl font-bold leading-tight mb-2" style={{ color: currentTheme.headingColor }}>{property.street_address}</h1>
                             <div className="flex items-center gap-1 opacity-70" style={{ color: currentTheme.textColor }}>
@@ -405,11 +375,9 @@ export default function ReviewPropertyPage() {
                                 <span className="text-sm font-medium">{property.city}, {property.state} {property.zip_code}</span>
                             </div>
                         </div>
-
                         <div className="text-3xl font-bold" style={{ color: currentTheme.primary }}>
                             ${property.listing_price?.toLocaleString() || "N/A"}
                         </div>
-
                         <div className="grid grid-cols-3 gap-4 py-4 border-y" style={{ borderColor: currentTheme.borderColor }}>
                             <div className="text-center">
                                 <div className="text-2xl font-bold mb-1" style={{ color: currentTheme.headingColor }}>{property.bedrooms}</div>
@@ -430,14 +398,10 @@ export default function ReviewPropertyPage() {
                                 </div>
                             </div>
                         </div>
-
-                        {/* Creator Info */}
                         {property.creator && (
                             <div className="flex items-center gap-3 pt-2">
-                                <div
-                                    className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-                                    style={{ backgroundColor: currentTheme.primary }}
-                                >
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                                    style={{ backgroundColor: currentTheme.primary }}>
                                     {property.creator.first_name?.charAt(0).toUpperCase()}
                                     {property.creator.last_name?.charAt(0).toUpperCase()}
                                 </div>
@@ -453,11 +417,9 @@ export default function ReviewPropertyPage() {
                         )}
                     </div>
 
-                    {/* Quick Stats / Metadata */}
                     <div className="p-6 rounded-2xl border shadow-sm space-y-4"
                         style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}>
                         <h3 className="font-bold text-sm uppercase opacity-70" style={{ color: currentTheme.textColor }}>Property Metadata</h3>
-
                         <div className="space-y-3 text-sm">
                             <div className="flex justify-between">
                                 <span style={{ color: currentTheme.textColor }}>Property ID</span>
@@ -485,6 +447,6 @@ export default function ReviewPropertyPage() {
                     </div>
                 </div>
             </div>
-        </div >
+        </div>
     );
 }

@@ -1,13 +1,10 @@
 "use client";
 
 import React, { useEffect } from "react";
-import Link from "next/link";
 import { useRouter, useParams } from "next/navigation";
-import { useForm, SubmitHandler } from "react-hook-form";
+import { useForm, SubmitHandler, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Toaster } from "react-hot-toast";
-
 import {
     MdSave, MdCalendarToday, MdAccessTime, MdTitle,
     MdEmail, MdPublic, MdHome, MdAttachMoney, MdPeople,
@@ -23,6 +20,7 @@ import { TextArea } from "@/components/common/Textarea";
 import { CheckboxButton } from "@/components/common/Checkboxbutton";
 import { SectionCard } from "@/components/common/Sectioncard";
 import { PageHeader } from "@/components/common/Pageheader";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
 
 import {
     campaignScheme,
@@ -41,12 +39,20 @@ import {
     maritalStatusesOptions,
     employmentStatusesOptions,
     homeOwnershipStatusesOptions
-} from "../../add/utility"; // Importing from the add page utility
+} from "../../add/utility";
 
 import { updateCampaignService, getCampaignByIdService } from "@/services/campaigns.service";
 import { showSuccessToast, showErrorToast } from "@/utils/toast";
 
 export default function EditCampaignPage() {
+    return (
+        <PermissionGuard module="campaign" action="edit">
+            <EditCampaignContent />
+        </PermissionGuard>
+    );
+}
+
+function EditCampaignContent() {
     const { currentTheme } = useTheme();
     const router = useRouter();
     const params = useParams();
@@ -59,6 +65,7 @@ export default function EditCampaignPage() {
         setValue,
         getValues,
         reset,
+        control,
         formState: { errors }
     } = useForm<CampaignAddData>({
         resolver: yupResolver(campaignScheme) as any,
@@ -76,16 +83,10 @@ export default function EditCampaignPage() {
     // Populate form when data is fetched
     useEffect(() => {
         if (campaignData) {
-            // We need to ensure the data matches the CampaignAddData structure
-            // Specifically managing arrays and transforming generic API response properties if needed
-            // For now, assuming direct mapping works for most fields.
-            // We might need to handle nulls vs empty strings if the API returns nulls.
-
             const { id, created_at, updated_at, ...rest } = campaignData;
             const safeData = {
                 ...CampaignAddDataDefaultValues,
                 ...rest,
-                // Ensure arrays are arrays even if API returns null/undefined (though default values handle this mostly)
                 channel: campaignData.channel || [],
                 distress_indicators: campaignData.distress_indicators || [],
             };
@@ -96,15 +97,13 @@ export default function EditCampaignPage() {
 
     const mutation = useMutation({
         mutationFn: async (data: CampaignAddData) => {
-            // Remove properties that should not be sent
             const { id, created_at, updated_at, ...cleanData } = data as any;
             return await updateCampaignService(campaignId, cleanData);
         },
         onSuccess: (response: any) => {
             const isSuccess = response?.is_success === true || (response?.data && !response?.error) || (response?.success === true);
-            // Sometimes update endpoints just return the object or a success wrapper differently, checking generically.
 
-            if (isSuccess || response?.id) { // fallback if response is just the object
+            if (isSuccess || response?.id) {
                 showSuccessToast("Campaign Updated Successfully!");
                 setTimeout(() => {
                     router.push("/campaigns");
@@ -124,7 +123,6 @@ export default function EditCampaignPage() {
         mutation.mutate(data);
     };
 
-    // Helper for array checkboxes (Channel, Distress)
     const handleArrayChange = (field: "channel" | "distress_indicators", value: string, checked: boolean) => {
         const current = getValues(field) || [];
         const currentArray = Array.isArray(current) ? current : [];
@@ -138,14 +136,12 @@ export default function EditCampaignPage() {
         setValue(field, newArray as any, { shouldValidate: true, shouldDirty: true });
     };
 
-    // Helper for single checkbox (boolean)
     const handleBooleanChange = (field: keyof CampaignAddData, checked: boolean) => {
         setValue(field, checked as any, { shouldValidate: true, shouldDirty: true });
     };
 
     const labelStyle = "block text-xs font-extrabold uppercase tracking-wide mb-1.5 opacity-90";
 
-    // Watch values for controlled components logic if needed
     const currentChannels = watch("channel");
     const currentDistress = watch("distress_indicators");
     const useAi = watch("use_ai_personalization");
@@ -157,7 +153,6 @@ export default function EditCampaignPage() {
     return (
         <div className="max-w-[1600px] mx-auto pb-20 fade-in-up">
 
-            {/* Header */}
             <PageHeader
                 backLink="/campaigns"
                 title="Edit Marketing Campaign"
@@ -188,7 +183,6 @@ export default function EditCampaignPage() {
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
 
-                {/* --- 1. Basic Information --- */}
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     <SectionCard stepNumber={1} title="Basic Information" bgColor="bg-blue-50" textColor="text-blue-600">
                         <div className="grid grid-cols-12 gap-x-4 gap-y-5">
@@ -225,7 +219,7 @@ export default function EditCampaignPage() {
                                         );
                                     })}
                                 </div>
-                                {errors.channel && <p className="text-red-500 text-xs mt-1 font-medium  p-1 rounded">{errors.channel.message}</p>}
+                                {errors.channel && <p className="text-red-500 text-xs mt-1 font-medium p-1 rounded">{errors.channel.message}</p>}
                             </div>
                             <div className="col-span-12">
                                 <CheckboxButton
@@ -237,7 +231,6 @@ export default function EditCampaignPage() {
                         </div>
                     </SectionCard>
 
-                    {/* --- 2. Schedule --- */}
                     <SectionCard stepNumber={2} title="Campaign Schedule" bgColor="bg-orange-50" textColor="text-orange-600">
                         <div className="grid grid-cols-12 gap-x-4 gap-y-5">
                             <div className="col-span-12 sm:col-span-6">
@@ -263,7 +256,7 @@ export default function EditCampaignPage() {
                         </div>
                     </SectionCard>
                 </div>
-                {/* --- 3. Content --- */}
+
                 <SectionCard stepNumber={3} title="Message Content" bgColor="bg-purple-50" textColor="text-purple-600">
                     <div className="grid grid-cols-12 gap-x-4 gap-y-5">
                         <div className="col-span-12">
@@ -276,12 +269,11 @@ export default function EditCampaignPage() {
                                 Email Content <span className="text-red-500 ml-1">*</span>
                             </label>
                             <TextArea {...register("email_content")} rows={6} placeholder="Dear investor, we have an exciting opportunity..." />
-                            {errors.email_content && <p className="text-red-500 text-xs mt-1 font-medium  p-1 rounded">{errors.email_content.message}</p>}
+                            {errors.email_content && <p className="text-red-500 text-xs mt-1 font-medium p-1 rounded">{errors.email_content.message}</p>}
                         </div>
                     </div>
                 </SectionCard>
 
-                {/* --- 4. Targeting & 5. Demographics --- */}
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                     <SectionCard stepNumber={4} title="Targeting Criteria" bgColor="bg-emerald-50" textColor="text-emerald-600">
                         <div className="grid grid-cols-12 gap-x-4 gap-y-5">
@@ -325,7 +317,6 @@ export default function EditCampaignPage() {
                         </div>
                     </SectionCard>
 
-                    {/* --- 5. Demographics --- */}
                     <SectionCard stepNumber={5} title="Demographics" bgColor="bg-pink-50" textColor="text-pink-600">
                         <div className="grid grid-cols-12 gap-x-4 gap-y-5">
                             <div className="col-span-12 sm:col-span-6">
@@ -367,9 +358,7 @@ export default function EditCampaignPage() {
                     </SectionCard>
                 </div>
 
-                {/* --- 6. Geography --- */}
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                    {/* Buyer Geo */}
                     <SectionCard stepNumber={6} title="Buyer Geography" bgColor="bg-indigo-50" textColor="text-indigo-600">
                         <div className="grid grid-cols-12 gap-x-4 gap-y-5">
                             {['Country', 'State', 'Counties', 'City', 'Districts', 'Parish'].map((field) => (
@@ -382,7 +371,6 @@ export default function EditCampaignPage() {
                         </div>
                     </SectionCard>
 
-                    {/* Seller Geo */}
                     <SectionCard stepNumber={7} title="Seller Geography & Keywords" bgColor="bg-cyan-50" textColor="text-cyan-600">
                         <div className="grid grid-cols-12 gap-x-4 gap-y-5">
                             {['Country', 'State', 'Counties', 'City', 'Districts', 'Parish'].map((field) => (
@@ -395,7 +383,7 @@ export default function EditCampaignPage() {
                             <div className="col-span-12">
                                 <label className={labelStyle} style={{ color: currentTheme.headingColor }}>Seller Keywords</label>
                                 <TextArea {...register("seller_keywords")} rows={3} maxLength={1000} placeholder="motivated seller, distressed property..." />
-                                {errors.seller_keywords && <p className="text-red-500 text-xs mt-1 font-medium  p-1 rounded">{errors.seller_keywords.message}</p>}
+                                {errors.seller_keywords && <p className="text-red-500 text-xs mt-1 font-medium p-1 rounded">{errors.seller_keywords.message}</p>}
                             </div>
                         </div>
                     </SectionCard>

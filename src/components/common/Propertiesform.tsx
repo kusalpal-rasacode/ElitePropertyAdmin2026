@@ -116,6 +116,8 @@ export default function PropertyForm({
         "rent_price",
         "rent_frequency",
         "security_deposit",
+        "start_date",
+        "end_date",
         "available_from",
         "lease_duration",
         "is_furnished",

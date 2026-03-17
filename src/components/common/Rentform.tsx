@@ -19,7 +19,6 @@ import {
   MdConstruction,
   MdBrush,
   MdRealEstateAgent,
-  MdLocalOffer,
   MdMoneyOff,
   MdApartment,
   MdMap,
@@ -51,8 +50,6 @@ import { FileUpload } from "@/components/common/Fileupload";
 import { Button } from "@/components/common/Button";
 import { ErrorMessage } from "./ErrorMessage";
 import { Switch } from "@/components/common/Switch";
-
-const MdPinDropIcon = MdLocationOn;
 
 interface RentFormProps {
   mode: "add" | "edit";
@@ -232,7 +229,7 @@ export default function RentForm({
                 <ErrorMessage error={getFieldError("state")} />
               </div>
               <div className="col-span-6 sm:col-span-6">
-                <InputField label="Zip Code" icon={<MdPinDropIcon />} required>
+                <InputField label="Zip Code" icon={<MdLocationOn />} required>
                   <TextInput
                     required
 
@@ -434,8 +431,194 @@ export default function RentForm({
               </InputField>
             </div>
           </SectionCard>
+ {/* FINANCIALS (FULL WIDTH) */}
+        <SectionCard
+          stepNumber={5}
+          title="Financials"
+          bgColor="bg-emerald-50"
+          textColor="text-emerald-600"
+        >
+          <div className="grid grid-cols-12 gap-x-4 gap-y-5">
 
-          <SectionCard
+            {/* <div className="col-span-12">
+              <h4 className="font-bold text-gray-700 border-b border-gray-200 pb-2 mb-2 flex items-center gap-2">
+                For Rent Details
+              </h4>
+            </div> */}
+
+            <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+              <InputField
+                label="Rent Price"
+                icon={<span className="font-bold">$</span>}
+                required
+              >
+                <TextInput
+                  required
+                  type="number"
+
+                  placeholder="0"
+                  {...register("rent_price")}
+                  style={{ fontWeight: "bold" }}
+                />
+              </InputField>
+              <ErrorMessage error={getFieldError("rent_price")} />
+            </div>
+
+            <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+              <InputField
+                label="Rent Frequency"
+                icon={<MdCalendarToday />}
+                required
+              >
+                <SelectInput
+                  required
+
+                  {...register("rent_frequency")}
+                  options={rentFrequencyOptions.map((opt) => opt.label)}
+                />
+              </InputField>
+              <ErrorMessage error={getFieldError("rent_frequency")} />
+            </div>
+
+            <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+              <InputField
+                label="Lease Duration (Mo)"
+                icon={<MdCalendarToday />}
+              >
+                <TextInput
+                  type="number"
+
+                  placeholder="12"
+                  {...register("lease_duration")}
+                />
+              </InputField>
+              <ErrorMessage error={getFieldError("lease_duration")} />
+            </div>
+            
+            <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+              <InputField
+                label="Application Fee"
+                icon={<MdAttachMoney />}
+              >
+                <TextInput
+                  type="number"
+
+                  placeholder="0"
+                  {...register("application_fee")}
+                />
+              </InputField>
+              <ErrorMessage error={getFieldError("application_fee")} />
+            </div>
+
+            <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+              <InputField
+                label="Move-in Fees"
+                icon={<MdAttachMoney />}
+              >
+                <TextInput
+                  type="number"
+
+                  placeholder="0"
+                  {...register("move_in_fees")}
+                />
+              </InputField>
+              <ErrorMessage error={getFieldError("move_in_fees")} />
+            </div>
+
+            <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+              <InputField
+                label="Security Deposit"
+                icon={<MdAttachMoney />}
+              >
+                <TextInput
+                  type="number"
+
+                  placeholder="0"
+                  {...register("security_deposit")}
+                />
+              </InputField>
+              <ErrorMessage error={getFieldError("security_deposit")} />
+            </div>
+            <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+              <InputField
+                label="Start Date"
+                icon={<MdCalendarToday />}
+                required
+              >
+                <TextInput
+                  type="date"
+
+                  required
+                  {...register("start_date")}
+                />
+              </InputField>
+              <ErrorMessage error={getFieldError("start_date")} />
+            </div>
+            <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+              <InputField
+                label="End Date"
+                icon={<MdCalendarToday />}
+              >
+                <TextInput
+                  type="date"
+
+                  required
+                  {...register("end_date")}
+                />
+              </InputField>
+              <ErrorMessage error={getFieldError("end_date")} />
+            </div>
+
+            <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+              <InputField
+                label="Available From"
+                icon={<MdCalendarToday />}
+                required
+              >
+                <TextInput
+                  type="date"
+
+                  required
+                  {...register("available_from")}
+                />
+              </InputField>
+              <ErrorMessage error={getFieldError("available_from")} />
+            </div>
+            <div className="col-span-12 sm:col-span-6 lg:col-span-4">
+              <InputField
+                label="Smoking Policy"
+                icon={<MdMoneyOff />}
+                required
+              >
+                <SelectInput
+
+                  {...register("smoking_policy")}
+                  options={smokingPolicyOptions.map((opt) => opt.label)}
+                />
+              </InputField>
+              <ErrorMessage error={getFieldError("smoking_policy")} />
+            </div>
+
+            <div className="col-span-12 sm:col-span-6 lg:col-span-6 flex flex-col sm:flex-row gap-6 mt-2 items-center">
+              <CheckboxButton
+
+                label="Furnished"
+                {...register("is_furnished")} checked={!!watch("is_furnished")}
+                className="w-full"
+              />
+              <CheckboxButton
+
+                label="Pets Allowed"
+                {...register("pets_allowed")} checked={!!watch("pets_allowed")}
+                className="w-full"
+              />
+            </div>
+            
+          </div>
+        </SectionCard>
+          
+        </div>
+<SectionCard
             stepNumber={4}
             title="Additional Info"
             bgColor="bg-gray-100"
@@ -465,163 +648,8 @@ export default function RentForm({
                 <ErrorMessage error={getFieldError("seller_notes")} />
               </div>
             </div>
-          </SectionCard>
-        </div>
 
-        {/* FINANCIALS (FULL WIDTH) */}
-        <SectionCard
-          stepNumber={5}
-          title="Financials"
-          bgColor="bg-emerald-50"
-          textColor="text-emerald-600"
-        >
-          <div className="grid grid-cols-12 gap-x-4 gap-y-5">
-
-            <div className="col-span-12">
-              <h4 className="font-bold text-gray-700 border-b border-gray-200 pb-2 mb-2 flex items-center gap-2">
-                For Rent Details
-              </h4>
-            </div>
-
-            <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-              <InputField
-                label="Rent Price"
-                icon={<span className="font-bold">$</span>}
-                required
-              >
-                <TextInput
-                  required
-                  type="number"
-
-                  placeholder="0"
-                  {...register("rent_price")}
-                  style={{ fontWeight: "bold" }}
-                />
-              </InputField>
-              <ErrorMessage error={getFieldError("rent_price")} />
-            </div>
-
-            <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-              <InputField
-                label="Rent Frequency"
-                icon={<MdCalendarToday />}
-                required
-              >
-                <SelectInput
-                  required
-
-                  {...register("rent_frequency")}
-                  options={rentFrequencyOptions.map((opt) => opt.label)}
-                />
-              </InputField>
-              <ErrorMessage error={getFieldError("rent_frequency")} />
-            </div>
-
-            <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-              <InputField
-                label="Security Deposit"
-                icon={<MdAttachMoney />}
-              >
-                <TextInput
-                  type="number"
-
-                  placeholder="0"
-                  {...register("security_deposit")}
-                />
-              </InputField>
-              <ErrorMessage error={getFieldError("security_deposit")} />
-            </div>
-
-            <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-              <InputField
-                label="Lease Duration (Months)"
-                icon={<MdCalendarToday />}
-              >
-                <TextInput
-                  type="number"
-
-                  placeholder="12"
-                  {...register("lease_duration")}
-                />
-              </InputField>
-              <ErrorMessage error={getFieldError("lease_duration")} />
-            </div>
-
-            <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-              <InputField
-                label="Available From"
-                icon={<MdCalendarToday />}
-                required
-              >
-                <TextInput
-                  type="date"
-
-                  required
-                  {...register("available_from")}
-                />
-              </InputField>
-              <ErrorMessage error={getFieldError("available_from")} />
-            </div>
-
-            <div className="col-span-12 sm:col-span-6 lg:col-span-6 flex flex-col sm:flex-row gap-6 mt-2 items-center">
-              <CheckboxButton
-
-                label="Furnished"
-                {...register("is_furnished")} checked={!!watch("is_furnished")}
-                className="w-full"
-              />
-              <CheckboxButton
-
-                label="Pets Allowed"
-                {...register("pets_allowed")} checked={!!watch("pets_allowed")}
-                className="w-full"
-              />
-            </div>
-            <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-              <InputField
-                label="Smoking Policy"
-                icon={<MdMoneyOff />}
-                required
-              >
-                <SelectInput
-
-                  {...register("smoking_policy")}
-                  options={smokingPolicyOptions.map((opt) => opt.label)}
-                />
-              </InputField>
-              <ErrorMessage error={getFieldError("smoking_policy")} />
-            </div>
-
-            <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-              <InputField
-                label="Application Fee"
-                icon={<MdAttachMoney />}
-              >
-                <TextInput
-                  type="number"
-
-                  placeholder="0"
-                  {...register("application_fee")}
-                />
-              </InputField>
-              <ErrorMessage error={getFieldError("application_fee")} />
-            </div>
-
-            <div className="col-span-12 sm:col-span-6 lg:col-span-3">
-              <InputField
-                label="Move-in Fees"
-                icon={<MdAttachMoney />}
-              >
-                <TextInput
-                  type="number"
-
-                  placeholder="0"
-                  {...register("move_in_fees")}
-                />
-              </InputField>
-              <ErrorMessage error={getFieldError("move_in_fees")} />
-            </div>
-
+            
             <div className="col-span-12">
               <h4 className="font-bold text-gray-700 border-b border-gray-200 pb-2 my-4 flex items-center gap-2">
                 Utilities Included
@@ -671,9 +699,8 @@ export default function RentForm({
                 ))}
               </div>
             </div>
-
-          </div>
-        </SectionCard>
+          </SectionCard>
+       
 
         {/* IMAGES */}
         <SectionCard

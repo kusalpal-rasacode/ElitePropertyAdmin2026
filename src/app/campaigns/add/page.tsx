@@ -45,7 +45,17 @@ import {
 import { createCampaignService } from "@/services/campaigns.service";
 import { showSuccessToast, showErrorToast } from "@/utils/toast";
 
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
+
 export default function AddCampaignPage() {
+  return (
+    <PermissionGuard module="campaign" action="add">
+      <AddCampaignContent />
+    </PermissionGuard>
+  );
+}
+
+function AddCampaignContent() {
   const { currentTheme } = useTheme();
   const router = useRouter();
 

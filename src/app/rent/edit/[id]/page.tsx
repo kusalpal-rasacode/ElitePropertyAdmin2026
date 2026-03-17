@@ -8,6 +8,7 @@ import { getRentalByIdService, updatePendingRentalService } from "@/services/ren
 import { propertyToFormData, PropertyFormData } from "@/utils/propertyFormUtils";
 import { mapPropertyFormToRentalPayload, mapRentalToPropertyData } from "@/utils/rentalMapper";
 import { showErrorToast, showSuccessToast } from "@/utils/toast";
+import { PermissionGuard } from "@/components/auth/PermissionGuard";
 
 const getErrorMessage = (error: unknown, fallback: string) => {
   if (typeof error === "string") return error;
@@ -20,13 +21,21 @@ const getErrorMessage = (error: unknown, fallback: string) => {
 };
 
 export default function EditRentPage() {
+  return (
+    <PermissionGuard module="rent" action="edit">
+      <EditRentContent />
+    </PermissionGuard>
+  );
+}
+
+function EditRentContent() {
   const router = useRouter();
   const params = useParams();
   const id = params?.id as string;
   const queryClient = useQueryClient();
 
-  const { data: rawRental, isLoading, isError, error } = useQuery({
-    queryKey: ["rental", id],
+  const { data: rawRental, isLoading: isFetching, isError, error } = useQuery({
+    queryKey: ["rentals", id],
     queryFn: () => getRentalByIdService(id),
     enabled: !!id,
   });
@@ -47,7 +56,7 @@ export default function EditRentPage() {
     }
   });
 
-  if (isLoading) return <div className="py-20 text-center">Loading rental...</div>;
+  if (isFetching) return <div className="py-20 text-center">Loading rental...</div>;
   if (isError) return <div className="py-20 text-center text-red-500">{getErrorMessage(error, "Failed to load rental.")}</div>;
 
   let initialData: PropertyFormData | undefined;

@@ -22,7 +22,7 @@ function RentPropertiesContent() {
         {/* Delete confirmation modal */}
         <ConfirmModal
           isOpen={state.canDeleteRentals && !!state.deleteId}
-          onClose={() => !state.isDeleteLoading && state.deleteId === null}
+          onClose={() => !state.isDeleteLoading && state.cancelDelete()}
           onConfirm={state.confirmDelete}
           title="Delete Rent"
           message="Are you sure you want to delete this rent listing? This action cannot be undone."
@@ -156,7 +156,7 @@ function RentPropertiesContent() {
         {/* Approve / Reject modal */}
         <ConfirmModal
           isOpen={state.isActionModalOpen}
-          onClose={() => state.setIsActionModalOpen}
+          onClose={state.setIsActionModalOpen}
           onConfirm={state.handleConfirmAction}
           title={state.pendingAction === "approve" ? "Approve Property" : "Reject Property"}
           message={`Are you sure you want to ${state.pendingAction} this property?`}

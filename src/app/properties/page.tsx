@@ -24,7 +24,7 @@ function PropertiesContent() {
                 {/* Delete confirmation */}
                 <ConfirmModal
                     isOpen={p.canDeleteProperties && !!p.deleteId}
-                    onClose={() => !p.isDeleteLoading && p.deleteId === null}
+                    onClose={() => !p.isDeleteLoading && p.cancelDelete()}
                     onConfirm={p.confirmDelete}
                     title="Delete Property"
                     message="Are you sure you want to delete this property? This action cannot be undone."

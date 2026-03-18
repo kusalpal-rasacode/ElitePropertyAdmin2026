@@ -16,6 +16,9 @@ import {
     createOrganization,
     deleteOrganization,
     getOrganizations,
+    getOrganizationUsers,  
+    getOrganizationPlans,  
+    getOrganizationRoles,
 } from "@/services/organization.service";
 import {
     CreateOrganizationDto,
@@ -39,7 +42,7 @@ export default function OrganizationsPage() {
     const [searchQuery, setSearchQuery] = useState("");
     const [showFilters, setShowFilters] = useState(false);
     const [activeMenuId, setActiveMenuId] = useState<number | null>(null);
-
+const [orgCounts, setOrgCounts] = useState<Record<number, { users: number; plans: number; roles: number }>>({});
     const [pagination, setPagination] = useState({
         page: 1,
         limit: 6,
@@ -58,35 +61,65 @@ export default function OrganizationsPage() {
 
     // ─── Fetch ────────────────────────────────────────────────────────────────
     const fetchOrganizations = async (page = pagination.page) => {
-        setLoading(true);
-        try {
-            const params: OrganizationParams = {
-                page,
-                limit: pagination.limit,
-                search: searchQuery,
-            };
-            const response = await getOrganizations(params);
+    setLoading(true);
+    try {
+        const params: OrganizationParams = {
+            page,
+            limit: pagination.limit,
+            search: searchQuery,
+        };
+        const response = await getOrganizations(params);
 
-            if (response && Array.isArray(response.data)) {
-                setOrganizations(response.data);
-                if (response.pagination) {
-                    setPagination((prev) => ({
-                        ...prev,
-                        total: response.pagination.total,
-                        totalPages: response.pagination.totalPages,
-                    }));
-                }
-            } else if (Array.isArray(response)) {
-                setOrganizations(response);
-            } else {
-                setOrganizations([]);
+        let orgs: Organization[] = [];
+
+        if (response && Array.isArray(response.data)) {
+            orgs = response.data;
+            setOrganizations(orgs);
+            if (response.pagination) {
+                setPagination((prev) => ({
+                    ...prev,
+                    total: response.pagination.total,
+                    totalPages: response.pagination.totalPages,
+                }));
             }
-        } catch (error) {
-            console.error("Failed to fetch organizations", error);
-        } finally {
-            setLoading(false);
+        } else if (Array.isArray(response)) {
+            orgs = response;
+            setOrganizations(orgs);
+        } else {
+            setOrganizations([]);
         }
-    };
+
+        // Fetch counts for each org in parallel
+        if (orgs.length > 0) {
+            Promise.all(
+                orgs.map(async (org: Organization) => {
+                    const [usersData, plansData, rolesData] = await Promise.all([
+                        getOrganizationUsers(org.id).catch(() => []),
+                        getOrganizationPlans(org.id).catch(() => []),
+                        getOrganizationRoles(org.id).catch(() => []),
+                    ]);
+                    return {
+                        id: org.id,
+                        users: (Array.isArray(usersData) ? usersData : (usersData as any).data || []).length,
+                        plans: (Array.isArray(plansData) ? plansData : (plansData as any).data || []).length,
+                        roles: (Array.isArray(rolesData) ? rolesData : (rolesData as any).data || []).length,
+                    };
+                })
+            ).then((results) => {
+                const map: Record<number, { users: number; plans: number; roles: number }> = {};
+                results.forEach((r) => {
+                    map[r.id] = { users: r.users, plans: r.plans, roles: r.roles };
+                });
+                setOrgCounts(map);
+            });
+        }
+
+    } catch (error) {
+        console.error("Failed to fetch organizations", error);
+    } finally {
+        setLoading(false);
+    }
+};
 
     useEffect(() => {
         const timeoutId = setTimeout(() => {
@@ -231,39 +264,38 @@ export default function OrganizationsPage() {
                                     </div>
 
                                     {/* Stats */}
-                                    <div
-                                        className="grid grid-cols-3 gap-2 py-3 border-t mt-auto"
-                                        style={{ borderColor: currentTheme.borderColor }}
-                                    >
-                                        {[
-                                            { icon: <MdPeople />, label: "Users" },
-                                            { icon: <MdLocalOffer />, label: "Plans" },
-                                            { icon: <MdSecurity />, label: "Roles" },
-                                        ].map(({ icon, label }, i) => (
-                                            <div
-                                                key={label}
-                                                className={`flex flex-col items-center ${i > 0 ? "border-l" : ""}`}
-                                                style={{ borderColor: currentTheme.borderColor }}
-                                            >
-                                                <div
-                                                    className="flex items-center gap-1.5 mb-1"
-                                                    style={{
-                                                        color: currentTheme.textColor,
-                                                        opacity: 0.8,
-                                                    }}
-                                                >
-                                                    {icon}
-                                                    <span className="text-xs font-bold">{label}</span>
-                                                </div>
-                                                <span
-                                                    className="text-sm font-bold"
-                                                    style={{ color: currentTheme.headingColor }}
-                                                >
-                                                    --
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
+<div
+    className="grid grid-cols-3 gap-2 py-3 border-t mt-auto"
+    style={{ borderColor: currentTheme.borderColor }}
+>
+    {[
+        { icon: <MdPeople />,     label: "Users", value: orgCounts[org.id]?.users },
+        { icon: <MdLocalOffer />, label: "Plans", value: orgCounts[org.id]?.plans },
+        { icon: <MdSecurity />,   label: "Roles", value: orgCounts[org.id]?.roles },
+    ].map(({ icon, label, value }, i) => (
+        <div
+            key={label}
+            className={`flex flex-col items-center ${i > 0 ? "border-l" : ""}`}
+            style={{ borderColor: currentTheme.borderColor }}
+        >
+            <div
+                className="flex items-center gap-1.5 mb-1"
+                style={{ color: currentTheme.textColor, opacity: 0.8 }}
+            >
+                {icon}
+                <span className="text-xs font-bold">{label}</span>
+            </div>
+            <span
+                className="text-sm font-bold"
+                style={{ color: currentTheme.headingColor }}
+            >
+                {value !== undefined ? value : (
+                    <span className="inline-block h-3 w-5 rounded bg-gray-200 animate-pulse" />
+                )}
+            </span>
+        </div>
+    ))}
+</div>
 
                                     {/* Footer row */}
                                     <div

@@ -97,7 +97,7 @@ export function PropertyCard({
             onClick={() =>
                 router.push(reviewHref)
             }
-            className="rounded-2xl border overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer backdrop-blur-md"
+            className="flex flex-col h-full rounded-2xl border overflow-hidden hover:shadow-lg transition-all duration-300 group cursor-pointer backdrop-blur-md"
             style={{ backgroundColor: currentTheme.cardBg + "E6", borderColor: currentTheme.borderColor }}
         >
             {/* ─── Image ────────────────────────────────────────────────────── */}
@@ -112,122 +112,127 @@ export function PropertyCard({
             />
 
             {/* ─── Body ─────────────────────────────────────────────────────── */}
-            <div className="p-5">
-                <div className="flex justify-between items-start mb-2">
-                    <h3
-                        className="text-lg font-bold line-clamp-1"
-                        style={{ color: currentTheme.headingColor }}
-                    >
-                        {property.street_address}
-                    </h3>
-                    <p className="text-lg font-bold" style={{ color: currentTheme.primary }}>
-                        ${property.listing_price?.toLocaleString()}
-                    </p>
-                </div>
-
-                <div
-                    className="flex items-center gap-1 text-sm mb-4"
-                    style={{ color: currentTheme.textColor }}
-                >
-                    <MdLocationOn size={16} />
-                    <p>
-                        {property.city}, {property.state}
-                    </p>
-                </div>
-
-                {/* Rejection reason */}
-                {String(property.status).toLowerCase() === "rejected" && property.rejection_reason && (
-                    <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-100">
-                        <p className="text-xs font-bold text-rose-600 mb-1 uppercase tracking-wider">
-                            Rejection Reason
-                        </p>
-                        <p
-                            className="text-sm text-rose-800 font-medium line-clamp-2"
-                            title={property.rejection_reason}
+            <div className="p-5 flex flex-col flex-1">
+                <div className="flex-1">
+                    <div className="flex justify-between items-start mb-2">
+                        <h3
+                            className="text-lg font-bold line-clamp-1"
+                            style={{ color: currentTheme.headingColor }}
                         >
-                            {property.rejection_reason}
+                            {property.street_address}
+                        </h3>
+                        <p className="text-lg font-bold" style={{ color: currentTheme.primary }}>
+                            ${property.listing_price?.toLocaleString()}
                         </p>
                     </div>
-                )}
 
-                {/* Stats */}
-                <div
-                    className="grid grid-cols-3 gap-2 py-3 border-t"
-                    style={{ borderColor: currentTheme.borderColor }}
-                >
-                    <StatCell icon={<MdOutlineBedroomParent />} label="Beds" value={property.bedrooms} />
-                    <StatCell
-                        icon={<MdOutlineBathroom />}
-                        label="Baths"
-                        value={property.bathrooms}
-                        bordered
-                    />
-                    <StatCell icon={<MdSquareFoot />} label="Sqft" value={property.square_feet} bordered />
+                    <div
+                        className="flex items-center gap-1 text-sm mb-4"
+                        style={{ color: currentTheme.textColor }}
+                    >
+                        <MdLocationOn size={16} />
+                        <p>
+                            {property.city}, {property.state}
+                        </p>
+                    </div>
+
+                    {/* Rejection reason */}
+                    {String(property.status).toLowerCase() === "rejected" && (
+                        <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-100">
+                            <p className="text-xs font-bold text-rose-600 mb-1 uppercase tracking-wider">
+                                Rejection Reason
+                            </p>
+                            <p
+                                className="text-sm text-rose-800 font-medium line-clamp-2"
+                                title={property.rejection_reason || "No specific reason provided."}
+                            >
+                                {property.rejection_reason || "No specific reason provided by administrator."}
+                            </p>
+                        </div>
+                    )}
                 </div>
 
-                {/* Footer */}
-                <div
-                    className="pt-4 border-t flex items-center justify-between"
-                    style={{ borderColor: currentTheme.borderColor }}
-                >
-                    {/* Creator info */}
-                    <div className="flex items-center gap-2">
-                        <div
-                            className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
-                            style={{ backgroundColor: currentTheme.primary }}
-                        >
-                            {avatarInitials}
-                        </div>
-                        <div className="flex flex-col min-w-0">
-                            <span
-                                className="text-xs font-semibold truncate max-w-[160px]"
-                                style={{ color: currentTheme.headingColor }}
+                {/* Bottom section (Stats + Footer) */}
+                <div className="mt-auto">
+                    {/* Stats */}
+                    <div
+                        className="grid grid-cols-3 gap-2 py-3 border-t"
+                        style={{ borderColor: currentTheme.borderColor }}
+                    >
+                        <StatCell icon={<MdOutlineBedroomParent />} label="Beds" value={property.bedrooms} />
+                        <StatCell
+                            icon={<MdOutlineBathroom />}
+                            label="Baths"
+                            value={property.bathrooms}
+                            bordered
+                        />
+                        <StatCell icon={<MdSquareFoot />} label="Sqft" value={property.square_feet} bordered />
+                    </div>
+
+                    {/* Footer */}
+                    <div
+                        className="pt-4 border-t flex items-center justify-between"
+                        style={{ borderColor: currentTheme.borderColor }}
+                    >
+                        {/* Creator info */}
+                        <div className="flex items-center gap-2">
+                            <div
+                                className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                                style={{ backgroundColor: currentTheme.primary }}
                             >
-                                {creatorName}
-                            </span>
-                            {activeTab === "pending" && property.creator && (
+                                {avatarInitials}
+                            </div>
+                            <div className="flex flex-col min-w-0">
                                 <span
-                                    className="text-[10px] truncate max-w-[160px] opacity-60"
+                                    className="text-xs font-semibold truncate max-w-[160px]"
+                                    style={{ color: currentTheme.headingColor }}
+                                >
+                                    {creatorName}
+                                </span>
+                                {activeTab === "pending" && property.creator && (
+                                    <span
+                                        className="text-[10px] truncate max-w-[160px] opacity-60"
+                                        style={{ color: currentTheme.textColor }}
+                                    >
+                                        {property.creator.username}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Action menu */}
+                        <div className="relative">
+                            {(canViewProperties || canEditProperties || canDeleteProperties) && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onMenuToggle(isMenuOpen ? null : property.id);
+                                    }}
+                                    className="hover:opacity-80 p-1 rounded-full hover:bg-black/5 transition-colors"
                                     style={{ color: currentTheme.textColor }}
                                 >
-                                    {property.creator.username}
-                                </span>
+                                    <MdMoreHoriz size={20} />
+                                </button>
+                            )}
+
+                            {isMenuOpen && (
+                                <PropertyCardMenu
+                                    property={property}
+                                    activeTab={activeTab}
+                                    pendingStatus={pendingStatus}
+                                    isRejectedPendingList={isRejectedPendingList}
+                                    reviewHref={reviewHref}
+                                    canViewProperties={canViewProperties}
+                                    canEditProperties={canEditProperties}
+                                    canDeleteProperties={canDeleteProperties}
+                                    onApprove={onApprove}
+                                    onReject={onReject}
+                                    onActivate={onActivate}
+                                    onDeactivate={onDeactivate}
+                                    onDelete={onDelete}
+                                />
                             )}
                         </div>
-                    </div>
-
-                    {/* Action menu */}
-                    <div className="relative">
-                        {(canViewProperties || canEditProperties || canDeleteProperties) && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    onMenuToggle(isMenuOpen ? null : property.id);
-                                }}
-                                className="hover:opacity-80 p-1 rounded-full hover:bg-black/5 transition-colors"
-                                style={{ color: currentTheme.textColor }}
-                            >
-                                <MdMoreHoriz size={20} />
-                            </button>
-                        )}
-
-                        {isMenuOpen && (
-                            <PropertyCardMenu
-                                property={property}
-                                activeTab={activeTab}
-                                pendingStatus={pendingStatus}
-                                isRejectedPendingList={isRejectedPendingList}
-                                reviewHref={reviewHref}
-                                canViewProperties={canViewProperties}
-                                canEditProperties={canEditProperties}
-                                canDeleteProperties={canDeleteProperties}
-                                onApprove={onApprove}
-                                onReject={onReject}
-                                onActivate={onActivate}
-                                onDeactivate={onDeactivate}
-                                onDelete={onDelete}
-                            />
-                        )}
                     </div>
                 </div>
             </div>
@@ -399,7 +404,7 @@ function PropertyCardMenu({
                         !isRejectedPendingList && (
                             <button
                                 onClick={(e) => { e.stopPropagation(); onApprove(property.id); }}
-                                className="px-4 py-2.5 text-left text-sm font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors"
+                                className="px-4 py-2.5 text-left text-sm font-semibold text-emerald-600 hover:bg-emerald-50 transition-colors w-full"
                             >
                                 Approve
                             </button>
@@ -416,11 +421,13 @@ function PropertyCardMenu({
                     </button>
                 )}
 
-                {(canDeleteProperties || (canEditProperties && activeTab !== "all")) && (
+                {/* Divider only shown if delete button is visible */}
+                {canDeleteProperties && activeTab !== "pending" && (
                     <div className="h-px my-1" style={{ backgroundColor: currentTheme.borderColor }} />
                 )}
 
-                {canDeleteProperties && (
+                {/* Delete button hidden for pending/rejected as requested */}
+                {canDeleteProperties && activeTab !== "pending" && (
                     <button
                         onClick={(e) => { e.stopPropagation(); onDelete(property.id); }}
                         className="px-4 py-2.5 text-left text-sm font-semibold text-rose-500 hover:bg-rose-50 transition-colors"

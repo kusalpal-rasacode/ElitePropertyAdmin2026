@@ -77,7 +77,7 @@ const NavLink = ({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  const active = mounted && pathname === path;
+  const active = mounted && (pathname === path || pathname.startsWith(path + "/"));
 
   return (
     <Link

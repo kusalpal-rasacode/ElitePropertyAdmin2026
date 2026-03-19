@@ -19,6 +19,7 @@ import {
   MdCampaign,
   MdApartment,
   MdKey,
+  MdEvent
 } from "react-icons/md";
 import { ConfirmModal } from "../common/ConfirmModal";
 import { isSuperAdmin, isEnterpriseAdmin } from "@/utils/authUtils";
@@ -48,13 +49,14 @@ const NAV_ITEMS: NavItem[] = [
   { name: "Rentals", icon: <MdApartment />, path: "/rent", permission: "rent" },
   { name: "Users & Agents", icon: <MdPeople />, path: "/users", permission: "user_management" },
   { name: "Campaigns", icon: <MdCampaign />, path: "/campaigns", permission: "campaign" },
+  { name: "Plans", icon: <MdEvent />, path: "/plans", permission: "plans" },
   { name: "Access Roles", icon: <MdKey />, path: "/roles", superAdminOnly: true },
   { name: "Permissions", icon: <MdSecurity />, path: "/permissions", superAdminOnly: true },
   { name: "Settings", icon: <MdSettings />, path: "/settings", alwaysShow: true },
 ];
 
 const MANAGEMENT_PATHS = ["/organizations", "/properties", "/rent", "/users", "/campaigns"];
-const SYSTEM_PATHS = ["/roles", "/permissions", "/settings"];
+const SYSTEM_PATHS = ["/roles","/plans", "/permissions", "/settings"];
 
 // ─── Hydration-safe NavLink ───────────────────────────────────────────────────
 const NavLink = ({
@@ -166,14 +168,14 @@ const UserFooter = ({
 
   const displayUser = mounted ? user : null;
   const rawProfileImage =
-    displayUser?.profile_image ||
-    displayUser?.profileImage ||
-    displayUser?.avatar ||
-    "";
-  const profileImageSrc =
-    typeof rawProfileImage === "string" && rawProfileImage.startsWith("/")
-      ? `http://localhost:4000${rawProfileImage}`
-      : rawProfileImage;
+  displayUser?.profile_image ||
+  displayUser?.profileImage ||
+  displayUser?.avatar ||
+  "";
+const profileImageStr = typeof rawProfileImage === "string" ? rawProfileImage : "";
+const profileImageSrc = profileImageStr.startsWith("/")
+  ? `http://localhost:4000${profileImageStr}`
+  : profileImageStr;
 
   useEffect(() => {
     setImageFailed(false);
@@ -292,7 +294,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   const handleLogoutConfirm = () => {
     logout();
-    router.push("/login");
+    // router.push("/login");
     setIsLogoutModalOpen(false);
   };
 

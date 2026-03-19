@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { MdArrowBack, MdVisibility, MdVisibilityOff } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
 import { createUserService } from "@/services/user.service";
 import { toast } from "react-hot-toast";
+import { getAllRoles } from "@/services/rbac.service";
+import type { RbacRole } from "@/types/rbac.type";
 
 export default function AddUserForm() {
     const { currentTheme } = useTheme();
@@ -22,6 +24,27 @@ export default function AddUserForm() {
     const [showPassword, setShowPassword] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [roles, setRoles] = useState<RbacRole[]>([]);
+    const [rolesLoading, setRolesLoading] = useState(true);
+    const hasFetched = useRef(false); // ← prevents double call
+
+    useEffect(() => {
+        if (hasFetched.current) return;
+        hasFetched.current = true;
+
+        const fetchRoles = async () => {
+            try {
+                const data = await getAllRoles();
+                setRoles(data);
+            } catch {
+                toast.error("Failed to load roles");
+            } finally {
+                setRolesLoading(false);
+            }
+        };
+        fetchRoles();
+    }, []);
+
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
@@ -206,16 +229,28 @@ export default function AddUserForm() {
                         >
                             Role
                         </label>
-                        <input
-                            type="text"
+                        <select
                             name="role"
                             value={formData.role}
                             onChange={handleChange}
                             required
-                            placeholder="e.g. buyer"
+                            disabled={rolesLoading}
                             className={inputClass}
-                            style={inputStyle}
-                        />
+                            style={{
+                                ...inputStyle,
+                                backgroundColor: currentTheme.cardBg,
+                                cursor: rolesLoading ? "not-allowed" : "pointer",
+                            }}
+                        >
+                            <option value="" disabled>
+                                {rolesLoading ? "Loading roles…" : "Select a role"}
+                            </option>
+                            {roles.map((r) => (
+                                <option key={r.Id ?? r.id} value={r.name ?? r.role}>
+                                    {r.role_title || r.name || r.role}
+                                </option>
+                            ))}
+                        </select>
                     </div>
                 </div>
 

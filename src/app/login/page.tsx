@@ -72,9 +72,9 @@ export default function LoginPage() {
           authLogin(user);
         }
 
-        setTimeout(() => {
-          router.replace("/dashboard");
-        }, 1000);
+        // setTimeout(() => {
+        //   router.replace("/dashboard");
+        // }, 1000);
       // } 
       // else {
       //   console.warn("Access Denied: User is not authorized", user);

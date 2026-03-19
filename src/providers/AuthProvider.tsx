@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { hasDashboardAccess } from "@/utils/authUtils";
+import { getUserByIdService } from "@/services/user.service";
 
 // Define User Type
 type User = {
@@ -13,7 +14,9 @@ type User = {
     email?: string;
     role?: string;
     roles?: any[];
-    avatar?: string;
+    avatar?: unknown;
+    profile_image?: unknown;
+    profileImage?: unknown;
 } | null;
 
 interface AuthContextType {
@@ -39,6 +42,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return null;
         }
     });
+
+    useEffect(() => {
+        if (!user?.id) return;
+
+        let active = true;
+
+        const syncLatestUser = async () => {
+            try {
+                const response = await getUserByIdService(String(user.id));
+                const latest = response?.data || response;
+                if (!active || !latest) return;
+
+                setUser((prev) => {
+                    const mergedUser = { ...(prev || {}), ...latest };
+                    if (typeof window !== "undefined") {
+                        localStorage.setItem("user", JSON.stringify(mergedUser));
+                    }
+                    return mergedUser;
+                });
+            } catch {
+                // Fall back to the cached auth user if the refresh fails.
+            }
+        };
+
+        void syncLatestUser();
+
+        return () => {
+            active = false;
+        };
+    }, [user?.id]);
 
     // Security Check: Enforce strict access control
     useEffect(() => {

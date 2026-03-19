@@ -25,6 +25,7 @@ import { ConfirmModal } from "../common/ConfirmModal";
 import { isSuperAdmin, isEnterpriseAdmin } from "@/utils/authUtils";
 import { getMyPermissions } from "@/services/rbac.service";
 import { PermissionsMap, ModuleKey } from "@/types/rbac.type";
+import { getUserProfileImageCandidates } from "@/utils/userProfile";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -163,23 +164,30 @@ const UserFooter = ({
   onLogout: () => void;
 }) => {
   const [mounted, setMounted] = useState(false);
-  const [imageFailed, setImageFailed] = useState(false);
   useEffect(() => setMounted(true), []);
 
   const displayUser = mounted ? user : null;
-  const rawProfileImage =
-  displayUser?.profile_image ||
-  displayUser?.profileImage ||
-  displayUser?.avatar ||
-  "";
-const profileImageStr = typeof rawProfileImage === "string" ? rawProfileImage : "";
-const profileImageSrc = profileImageStr.startsWith("/")
-  ? `http://localhost:4000${profileImageStr}`
-  : profileImageStr;
+  const profileImageCandidates = React.useMemo(
+    () => getUserProfileImageCandidates(displayUser),
+    [displayUser],
+  );
+  const profileImageSrc = profileImageCandidates[0] || "";
 
-  useEffect(() => {
-    setImageFailed(false);
-  }, [profileImageSrc]);
+  const handleProfileImageError = (
+    event: React.SyntheticEvent<HTMLImageElement>,
+  ) => {
+    const currentIndex = Number(event.currentTarget.dataset.index || "0");
+    const nextIndex = currentIndex + 1;
+    const nextImage = profileImageCandidates[nextIndex];
+
+    if (nextImage) {
+      event.currentTarget.dataset.index = String(nextIndex);
+      event.currentTarget.src = nextImage;
+      return;
+    }
+
+    event.currentTarget.style.display = "none";
+  };
 
   const getInitials = () => {
     if (!displayUser) return "A";
@@ -207,23 +215,24 @@ const profileImageSrc = profileImageStr.startsWith("/")
     >
       {/* Avatar */}
       <div
-        className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-md overflow-hidden"
+        className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0 shadow-md overflow-hidden relative"
         style={{
           backgroundColor: currentTheme.primary,
           color: "#fff",
         }}
         suppressHydrationWarning
       >
-        {profileImageSrc && !imageFailed ? (
+        {getInitials()}
+        {profileImageSrc ? (
           <img
+            key={profileImageCandidates.join("|")}
             src={profileImageSrc}
             alt=""
-            className="w-9 h-9 rounded-lg object-cover"
-            onError={() => setImageFailed(true)}
+            className="absolute inset-0 w-9 h-9 rounded-lg object-cover"
+            data-index="0"
+            onError={handleProfileImageError}
           />
-        ) : (
-          getInitials()
-        )}
+        ) : null}
       </div>
 
       {(!collapsed || mobileOpen) && (

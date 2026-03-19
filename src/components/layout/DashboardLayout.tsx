@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useTheme } from "@/providers/ThemeProvider"; // Importing useTheme
 import { useAuth } from "@/providers/AuthProvider";
 import TypewriterGreeting from "./TypewriterGreeting";
+import { getUserProfileImageCandidates } from "@/utils/userProfile";
 
 const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     const [collapsed, setCollapsed] = useState(false);
@@ -53,19 +54,25 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
     };
 
     const initials = getDisplayName().charAt(0).toUpperCase() || "A";
-    const rawProfileImage =
-        (displayUser as { profile_image?: string; profileImage?: string } | null)?.profile_image ||
-        (displayUser as { profile_image?: string; profileImage?: string } | null)?.profileImage ||
-        displayUser?.avatar ||
-        "";
-    const profileImageSrc = rawProfileImage.startsWith("/")
-        ? `http://localhost:4000${rawProfileImage}`
-        : rawProfileImage;
-    const [profileImageFailed, setProfileImageFailed] = useState(false);
+    const profileImageCandidates = React.useMemo(
+        () => getUserProfileImageCandidates(displayUser),
+        [displayUser],
+    );
+    const profileImageSrc = profileImageCandidates[0] || "";
 
-    React.useEffect(() => {
-        setProfileImageFailed(false);
-    }, [profileImageSrc]);
+    const handleProfileImageError = (event: React.SyntheticEvent<HTMLImageElement>) => {
+        const currentIndex = Number(event.currentTarget.dataset.index || "0");
+        const nextIndex = currentIndex + 1;
+        const nextImage = profileImageCandidates[nextIndex];
+
+        if (nextImage) {
+            event.currentTarget.dataset.index = String(nextIndex);
+            event.currentTarget.src = nextImage;
+            return;
+        }
+
+        event.currentTarget.style.display = "none";
+    };
 
     return (
         <div
@@ -144,20 +151,21 @@ const DashboardLayout = ({ children }: { children: React.ReactNode }) => {
                             <div className="h-8 w-px mx-1 bg-black/10"></div>
                             <div
                                 onClick={() => router.push("/settings#admin-profile")}
-                                className="w-9 h-9 rounded-lg text-white flex items-center justify-center font-bold text-xs shadow-md cursor-pointer hover:brightness-110"
+                                className="w-9 h-9 rounded-lg text-white flex items-center justify-center font-bold text-xs shadow-md cursor-pointer hover:brightness-110 relative overflow-hidden"
                                 style={{ backgroundColor: currentTheme.primary }}
                                 title="Go to Admin Profile"
                             >
-                                {profileImageSrc && !profileImageFailed ? (
+                                {initials}
+                                {profileImageSrc ? (
                                     <img
+                                        key={profileImageCandidates.join("|")}
                                         src={profileImageSrc}
                                         alt=""
-                                        className="w-9 h-9 rounded-lg object-cover"
-                                        onError={() => setProfileImageFailed(true)}
+                                        className="absolute inset-0 w-9 h-9 rounded-lg object-cover"
+                                        data-index="0"
+                                        onError={handleProfileImageError}
                                     />
-                                ) : (
-                                    initials
-                                )}
+                                ) : null}
                             </div>
                         </div>
                     </header>

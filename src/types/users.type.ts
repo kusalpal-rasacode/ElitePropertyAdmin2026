@@ -32,7 +32,9 @@ export interface UserData {
   roles?: any[];
   // Extra optional fields used elsewhere in the app
   permissions?: any;
-  profile_image?: string | File;
+  profile_image?: string | File | Record<string, unknown> | null;
+  profileImage?: string | Record<string, unknown> | null;
+  avatar?: string | Record<string, unknown> | null;
   date_of_birth?: string;
   gender?: string;
   address_line_1?: string;

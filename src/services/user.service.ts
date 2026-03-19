@@ -83,7 +83,7 @@ export const getAllUsersService = async (): Promise<UserData[]> => {
 
 export const getUserByIdService = async (id: string): Promise<UserResponse> => {
   try {
-    const response = await api.get<UserResponse>(`/users/${id}`);
+    const response = await privetApi.get<UserResponse>(`/users/${id}`);
     return response.data;
   } catch (error: any) {
     console.error("Error fetching user by ID:", error);
@@ -109,7 +109,7 @@ export const updateUserByIdService = async (
       });
     }
 
-    const response = await api.put<UserResponse>(`/users/${id}`, payload);
+    const response = await privetApi.put<UserResponse>(`/users/${id}`, payload);
 
     if (response.data?.is_success && response.data.data) {
       const storedUser = localStorage.getItem("user");

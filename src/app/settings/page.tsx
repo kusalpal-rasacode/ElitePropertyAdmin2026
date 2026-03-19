@@ -5,6 +5,7 @@ import { MdCheck, MdColorLens, MdPalette, MdSave, MdUndo, MdPerson, MdMail, MdLo
 import { useAuth } from "@/providers/AuthProvider";
 import { getUserByIdService, updateUserByIdService } from "@/services/user.service";
 import { showErrorToast, showSuccessToast } from "@/utils/toast";
+import { getUserProfileImage } from "@/utils/userProfile";
 
 export default function SettingsPage() {
     const { currentTheme, savedTheme, setPreviewTheme, saveTheme, cancelPreview, setCustomColor, presets } = useTheme();
@@ -42,12 +43,13 @@ export default function SettingsPage() {
         setMounted(true);
     }, []);
 
-    const normalizeImageUrl = (value?: string | null) => {
-        const raw = String(value ?? "").trim();
-        if (!raw) return "";
-        if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
-        if (raw.startsWith("/")) return `http://localhost:4000${raw}`;
-        return `http://localhost:4000/uploads/users/${raw}`;
+    const setResolvedProfileImageUrl = (nextUrl: string) => {
+        setProfileImageUrl((previousUrl) => {
+            if (previousUrl.startsWith("blob:")) {
+                URL.revokeObjectURL(previousUrl);
+            }
+            return nextUrl;
+        });
     };
 
     const applyUserToForm = (source: any) => {
@@ -67,11 +69,17 @@ export default function SettingsPage() {
             country: source?.country ?? "",
             zip_code: source?.zip_code ?? "",
         });
-        setProfileImageUrl(
-            normalizeImageUrl(source?.profile_image || source?.profileImage || source?.avatar),
-        );
+        setResolvedProfileImageUrl(getUserProfileImage(source));
         setProfileImageRemoved(false);
     };
+
+    useEffect(() => {
+        return () => {
+            if (profileImageUrl.startsWith("blob:")) {
+                URL.revokeObjectURL(profileImageUrl);
+            }
+        };
+    }, [profileImageUrl]);
 
     useEffect(() => {
         if (!safeUser?.id) {
@@ -143,7 +151,7 @@ export default function SettingsPage() {
         const file = e.target.files?.[0];
         if (!file) return;
         setProfileImageFile(file);
-        setProfileImageUrl(URL.createObjectURL(file));
+        setResolvedProfileImageUrl(URL.createObjectURL(file));
         setProfileImageRemoved(false);
         if (fileInputRef.current) {
             fileInputRef.current.value = "";
@@ -153,8 +161,11 @@ export default function SettingsPage() {
     const handleRemoveProfilePhoto = () => {
         if (!isProfileEditing) setIsProfileEditing(true);
         setProfileImageFile(null);
-        setProfileImageUrl("");
+        setResolvedProfileImageUrl("");
         setProfileImageRemoved(true);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
     };
 
     const handleChangeProfilePhoto = () => {
@@ -178,6 +189,7 @@ export default function SettingsPage() {
         setProfileSaving(true);
         try {
             const payload = new FormData();
+            let syncedLatestProfile = false;
             const appendIfNonEmpty = (key: string, value: string) => {
                 const normalized = String(value ?? "").trim();
                 if (normalized) payload.append(key, normalized);
@@ -202,14 +214,31 @@ export default function SettingsPage() {
 
             if (profileImageFile) {
                 payload.append("profile_image", profileImageFile);
+            } else if (profileImageRemoved) {
+                payload.append("profile_image", "");
             }
 
             const response = await updateUserByIdService(String(safeUser.id), payload);
-            const updated = response?.data || {};
-            const mergedUser = profileImageRemoved
-                ? { ...(safeUser as any), ...updated, profile_image: "" }
-                : { ...(safeUser as any), ...updated };
-            authLogin(mergedUser);
+            let latest = response?.data || response || {};
+
+            try {
+                const latestResponse = await getUserByIdService(String(safeUser.id));
+                latest = latestResponse?.data || latest;
+                syncedLatestProfile = true;
+            } catch {
+                // Keep the update response when the re-fetch fails.
+            }
+
+            const mergedUser: Record<string, unknown> = { ...(safeUser as any), ...(latest as any) };
+            const hasResolvedProfileImage = Boolean(getUserProfileImage(mergedUser));
+
+            if (profileImageRemoved && (!syncedLatestProfile || !hasResolvedProfileImage)) {
+                mergedUser.profile_image = "";
+                mergedUser.profileImage = "";
+                mergedUser.avatar = "";
+            }
+
+            authLogin(mergedUser as any);
             applyUserToForm(mergedUser);
             setProfileImageFile(null);
             setProfileImageRemoved(false);
@@ -385,7 +414,7 @@ export default function SettingsPage() {
                                         src={profileImageUrl}
                                         alt=""
                                         className="w-full h-full object-cover"
-                                        onError={() => setProfileImageUrl("")}
+                                        onError={() => setResolvedProfileImageUrl("")}
                                     />
                                 ) : (
                                     profileInitials
@@ -410,7 +439,7 @@ export default function SettingsPage() {
                                         className="text-xs font-bold px-4 py-2 rounded-lg border hover:brightness-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor, color: currentTheme.primary }}
                                         type="button"
-                                        disabled={!isProfileEditing}
+                                        disabled={profileSaving || profileLoading}
                                     >
                                         Change Photo
                                     </button>
@@ -419,7 +448,7 @@ export default function SettingsPage() {
                                         className="text-xs font-bold px-4 py-2 rounded-lg border hover:brightness-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                         style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor, color: "#ef4444" }}
                                         type="button"
-                                        disabled={!isProfileEditing}
+                                        disabled={profileSaving || profileLoading}
                                     >
                                         Remove Photo
                                     </button>

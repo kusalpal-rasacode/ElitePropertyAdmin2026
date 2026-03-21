@@ -109,9 +109,7 @@ export const planSchema = Yup.object({
     .matches(/^[a-z0-9_]+$/, "Name must be lowercase letters, numbers, or underscores only")
     .min(2, "Name must be at least 2 characters"),
 
-  display_name: Yup.string()
-    .required("Display name is required")
-    .min(2, "Display name must be at least 2 characters"),
+  display_name: Yup.string().optional(),
 
   description: Yup.string().optional(),
 
@@ -139,8 +137,8 @@ export const planSchema = Yup.object({
     .typeError("Please select an organization"),
 
   is_active: Yup.string()
-    .required("Status is required")
-    .oneOf(["true", "false"], "Please select a status"),
+    .optional()
+    .oneOf(["true", "false", ""], "Please select a status"),
 
   features: Yup.array().of(Yup.string().required()).optional(),
 });

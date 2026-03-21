@@ -13,6 +13,7 @@ import {
   MdStar,
   MdCalendarToday,
   MdAttachMoney,
+  MdLocalOffer,
 } from "react-icons/md";
 import { useTheme } from "@/providers/ThemeProvider";
 import Link from "next/link";
@@ -40,38 +41,23 @@ const BILLING_LABEL: Record<string, string> = {
   weekly: "/ wk",
 };
 
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+const formatDate = (iso: string | undefined | null) => {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" });
+};
 
 // ─── Small helpers ─────────────────────────────────────────────────────────────
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   const { currentTheme } = useTheme();
   return (
-    <div className="flex items-start justify-between py-2.5 border-b last:border-0" style={{ borderColor: currentTheme.borderColor }}>
+    <div className="flex items-start justify-between py-2.5 border-b last:border-0 border-dashed" style={{ borderColor: currentTheme.borderColor }}>
       <span className="text-xs font-semibold uppercase tracking-wide opacity-60 w-36 flex-shrink-0" style={{ color: currentTheme.textColor }}>
         {label}
       </span>
       <span className="text-sm font-bold text-right" style={{ color: currentTheme.headingColor }}>
-        {value}
+        {value || "—"}
       </span>
-    </div>
-  );
-}
-
-function SectionCard({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  const { currentTheme } = useTheme();
-  return (
-    <div className="rounded-3xl border shadow-sm transition-all hover:shadow-md overflow-hidden"
-      style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}>
-      <div className="h-0.5 w-full bg-gradient-to-r from-transparent via-blue-500/30 to-transparent" />
-      <div className="p-6">
-        <h3 className="text-base font-bold mb-5 flex items-center gap-2" style={{ color: currentTheme.headingColor }}>
-          <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">{icon}</div>
-          {title}
-        </h3>
-        {children}
-      </div>
     </div>
   );
 }
@@ -96,6 +82,7 @@ function PlanDetailContent() {
   const [error, setError] = useState<string | null>(null);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<"details" | "permissions">("details");
   const fetchedIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -165,10 +152,10 @@ function PlanDetailContent() {
     : Object.entries(plan.features).map(([k, v]) => `${k}: ${v}`);
 
   return (
-    <div className="mx-auto space-y-8 pb-20">
+    <div className="max-w-[1600px] mx-auto min-h-screen pb-20">
 
       {/* ── Top bar ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between xl:mb-2">
         <Link
           href="/plans"
           className="flex items-center gap-2 hover:opacity-70 transition-opacity"
@@ -177,28 +164,6 @@ function PlanDetailContent() {
           <MdArrowBack size={20} />
           <span className="font-bold">Back to Plans</span>
         </Link>
-
-        <div className="flex gap-3">
-          <PermissionGuard module="plan" action="edit">
-            <Link href={`/plans/edit/${plan.id}`}>
-              <button
-                className="px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 border transition-colors hover:bg-blue-50 text-blue-600 border-blue-200"
-              >
-                <MdEdit size={18} />
-                Edit Plan
-              </button>
-            </Link>
-          </PermissionGuard>
-          <PermissionGuard module="plan" action="delete">
-            <button
-              onClick={() => setIsDeleteModalOpen(true)}
-              className="px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 border transition-colors hover:bg-rose-50 text-rose-600 border-rose-200"
-            >
-              <MdClose size={18} />
-              Delete Plan
-            </button>
-          </PermissionGuard>
-        </div>
       </div>
 
       {/* ── Delete modal ── */}
@@ -213,181 +178,326 @@ function PlanDetailContent() {
         confirmButtonColor="#ef4444"
       />
 
-      {/* ── Hero ── */}
-      <div
-        className="rounded-3xl border shadow-sm overflow-hidden"
-        style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}
-      >
-        <div
-          className="h-1.5 w-full"
-          style={{
-            background: plan.is_active
-              ? "linear-gradient(90deg, #10b981, #34d399)"
-              : "linear-gradient(90deg, #9ca3af, #d1d5db)",
-          }}
-        />
-        <div className="p-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-6">
-          {/* Left */}
-          <div className="flex-1 min-w-0">
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <span
-                className="text-xs font-bold px-2.5 py-1 rounded-full border uppercase tracking-wider"
-                style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor, backgroundColor: currentTheme.cardBg ?? "#f1f5f9" }}
-              >
-                {plan.plan_type}
-              </span>
-              <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${plan.is_active ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-gray-100 text-gray-500 border-gray-200"}`}>
-                {plan.is_active ? "Active" : "Inactive"}
-              </span>
-              <span className="text-xs font-mono opacity-40 ml-1" style={{ color: currentTheme.textColor }}>
-                ID #{plan.id}
-              </span>
-            </div>
-            <h1 className="text-3xl font-bold leading-tight mb-2" style={{ color: currentTheme.headingColor }}>
-              {plan.display_name}
-            </h1>
-            <p className="text-base leading-relaxed opacity-80" style={{ color: currentTheme.textColor }}>
-              {plan.description}
-            </p>
-            <p className="text-xs font-mono opacity-40 mt-2" style={{ color: currentTheme.textColor }}>
-              {plan.name}
-            </p>
-          </div>
-
-          {/* Right — price */}
-          <div className="flex-shrink-0 text-right">
-            <div className="text-4xl font-bold" style={{ color: currentTheme.primary }}>
-              {plan.price === 0 ? "Free" : `$${plan.price}`}
-              {plan.price > 0 && (
-                <span className="text-lg text-gray-400 font-normal ml-1">
-                  {BILLING_LABEL[plan.billing_cycle] ?? ""}
-                </span>
-              )}
-            </div>
-            <p className="text-sm capitalize opacity-60 mt-1" style={{ color: currentTheme.textColor }}>
-              Billed {plan.billing_cycle}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── 2-col grid ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        {/* Left col — details */}
-        <div className="lg:col-span-2 space-y-6">
-
-          {/* Plan Info */}
-          <SectionCard title="Plan Info" icon={<MdAttachMoney size={20} />}>
-            <InfoRow label="Name" value={plan.name} />
-            <InfoRow label="Display Name" value={plan.display_name} />
-            <InfoRow label="Plan Type" value={plan.plan_type} />
-            <InfoRow label="Billing Cycle" value={<span className="capitalize">{plan.billing_cycle}</span>} />
-            <InfoRow label="Price" value={plan.price === 0 ? "Free" : `$${plan.price}`} />
-            <InfoRow label="Created" value={formatDate(plan.created_at)} />
-            <InfoRow label="Updated" value={formatDate(plan.updated_at)} />
-          </SectionCard>
-
-          {/* Permissions matrix */}
-          {Object.keys(permissionsMap).length > 0 && (
-            <SectionCard title="Role Permissions" icon={<MdSecurity size={20} />}>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead>
-                    <tr>
-                      <th className="text-left py-2 pr-6 text-xs font-bold uppercase tracking-wider opacity-50 w-40" style={{ color: currentTheme.textColor }}>
-                        Module
-                      </th>
-                      {ACTION_KEYS.map((a) => (
-                        <th key={a} className="text-center py-2 px-4 text-xs font-bold uppercase tracking-wider opacity-50 capitalize" style={{ color: currentTheme.textColor }}>
-                          {a}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(permissionsMap).map(([module, perms]) => (
-                      <tr key={module} className="border-t hover:bg-black/5 transition-colors" style={{ borderColor: currentTheme.borderColor }}>
-                        <td className="py-3 pr-6">
-                          <span className="text-sm font-bold capitalize" style={{ color: currentTheme.headingColor }}>
-                            {module.replace(/_/g, " ")}
-                          </span>
-                        </td>
-                        {ACTION_KEYS.map((a) => (
-                          <td key={a} className="py-3 px-4 text-center">
-                            <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full ${perms[a] ? "bg-emerald-100 text-emerald-600" : "bg-gray-100 text-gray-300"}`}>
-                              {perms[a] ? <MdCheck size={13} /> : <MdClose size={13} />}
-                            </span>
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </SectionCard>
-          )}
-        </div>
-
-        {/* Right col — sticky sidebar */}
-        <div className="space-y-6 self-start" style={{ position: "sticky", top: "1.5rem" }}>
-
-          {/* Role card */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start pt-4">
+        {/* LEFT COLUMN - Sticky Profile & Actions */}
+        <div className="lg:col-span-4 xl:col-span-3 sticky top-6 space-y-6">
           <div
-            className="p-6 rounded-2xl border shadow-sm space-y-4"
-            style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}
+            className="rounded-2xl border shadow-sm overflow-hidden relative group"
+            style={{
+              backgroundColor: currentTheme.cardBg,
+              borderColor: currentTheme.borderColor,
+            }}
           >
-            <h3 className="font-bold flex items-center gap-2 text-base" style={{ color: currentTheme.headingColor }}>
-              <MdPerson size={20} className="text-blue-500" />
-              Role
-            </h3>
-            <div className="space-y-1">
-              <InfoRow label="ID" value={plan.role?.Id} />
-              <InfoRow label="Name" value={plan.role?.Name} />
-              <InfoRow label="Title" value={plan.role?.role_title} />
-            </div>
-          </div>
-
-          {/* Organization card */}
-          <div
-            className="p-6 rounded-2xl border shadow-sm space-y-4"
-            style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}
-          >
-            <h3 className="font-bold flex items-center gap-2 text-base" style={{ color: currentTheme.headingColor }}>
-              <MdBusiness size={20} className="text-violet-500" />
-              Organization
-            </h3>
-            <div className="space-y-1">
-              <InfoRow label="Name" value={plan.organization?.name} />
-              <InfoRow label="Industry" value={plan.organization?.industry} />
-              <InfoRow label="Size" value={plan.organization?.size ?? "—"} />
-              <InfoRow label="Created" value={formatDate(plan.organization?.created_at)} />
-            </div>
-          </div>
-
-          {/* Features card */}
-          {featureList.length > 0 && (
+            {/* Decorative Top Banner */}
             <div
-              className="p-6 rounded-2xl border shadow-sm space-y-4"
-              style={{ backgroundColor: currentTheme.cardBg, borderColor: currentTheme.borderColor }}
+              className="h-24 w-full relative"
+              style={{ background: plan.is_active ? `linear-gradient(135deg, ${currentTheme.primary}40, ${currentTheme.primary}10)` : 'linear-gradient(135deg, #cbd5e140, #cbd5e110)' }}
             >
-              <h3 className="font-bold flex items-center gap-2 text-base" style={{ color: currentTheme.headingColor }}>
-                <MdStar size={20} className="text-amber-500" />
-                Features
-              </h3>
-              <ul className="space-y-2.5">
-                {featureList.map((f, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-sm" style={{ color: currentTheme.textColor }}>
-                    <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
-                      <MdCheck size={12} />
-                    </span>
-                    {f}
-                  </li>
-                ))}
-              </ul>
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/10"></div>
             </div>
-          )}
+
+            <div className="px-6 pb-6 -mt-10 relative">
+              {/* Icon / Avatar */}
+              <div
+                className="h-20 w-20 rounded-2xl shadow-lg flex items-center justify-center text-3xl font-bold uppercase overflow-hidden border-4 mb-4"
+                style={{
+                  backgroundColor: currentTheme.cardBg,
+                  borderColor: currentTheme.cardBg,
+                  color: plan.is_active ? currentTheme.primary : "#94a3b8",
+                }}
+              >
+                <MdLocalOffer size={40} />
+              </div>
+
+              {/* Status Badges */}
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <span
+                  className="text-xs font-bold px-2.5 py-1 rounded-full border uppercase tracking-wider"
+                  style={{ borderColor: currentTheme.borderColor, color: currentTheme.textColor, backgroundColor: currentTheme.cardBg ?? "#f1f5f9" }}
+                >
+                  {plan.plan_type}
+                </span>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${plan.is_active ? "bg-emerald-50 text-emerald-600 border-emerald-200" : "bg-gray-100 text-gray-500 border-gray-200"}`}>
+                  {plan.is_active ? "Active" : "Inactive"}
+                </span>
+                <span className="text-xs font-mono opacity-40 ml-1" style={{ color: currentTheme.textColor }}>
+                  ID #{plan.id}
+                </span>
+              </div>
+
+              {/* Info */}
+              <div className="mb-6">
+                <h1
+                  className="text-2xl font-bold leading-tight mb-2 break-words"
+                  style={{ color: currentTheme.headingColor }}
+                >
+                  {plan.display_name}
+                </h1>
+                <div
+                  className="flex items-center gap-1.5 text-sm opacity-80 mb-5"
+                  style={{ color: currentTheme.textColor }}
+                >
+                  <MdBusiness size={14} />
+                  <span className="truncate">{plan.organization?.name || "Global / System Plan"}</span>
+                </div>
+                
+                {/* Price block */}
+                <div className="p-4 rounded-xl border bg-black/5" style={{ borderColor: currentTheme.borderColor }}>
+                  <div className="text-3xl font-bold" style={{ color: currentTheme.primary }}>
+                    {plan.price === 0 ? "Free" : `$${plan.price}`}
+                    {plan.price > 0 && (
+                      <span className="text-base text-gray-400 font-normal ml-1">
+                        {BILLING_LABEL[plan.billing_cycle] ?? ""}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs capitalize font-medium opacity-60 mt-1" style={{ color: currentTheme.textColor }}>
+                    Billed {plan.billing_cycle}
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-3">
+                <PermissionGuard module="plan" action="edit">
+                  <Link href={`/plans/edit/${plan.id}`} className="block">
+                    <button
+                      className="w-full py-2.5 rounded-xl font-bold text-sm border transition-all hover:bg-black/5 flex items-center justify-center gap-2"
+                      style={{ borderColor: currentTheme.borderColor, color: currentTheme.headingColor }}
+                    >
+                      <MdEdit size={16} /> Edit Plan
+                    </button>
+                  </Link>
+                </PermissionGuard>
+                
+                <PermissionGuard module="plan" action="delete">
+                  <button
+                    onClick={() => setIsDeleteModalOpen(true)}
+                    className="w-full py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 border transition-colors hover:bg-rose-50 text-rose-600 border-rose-200"
+                  >
+                    <MdDelete size={16} /> Delete Plan
+                  </button>
+                </PermissionGuard>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN - Tabs & Content */}
+        <div className="lg:col-span-8 xl:col-span-9">
+          <div
+            className="rounded-2xl border shadow-sm p-6 space-y-6"
+            style={{
+              backgroundColor: currentTheme.cardBg,
+              borderColor: currentTheme.borderColor,
+            }}
+          >
+            {/* Header / Breadcrumbs Area */}
+            <div
+              className="flex items-center justify-between pb-4 border-b"
+              style={{ borderColor: currentTheme.borderColor }}
+            >
+              <div
+                className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider opacity-60"
+                style={{ color: currentTheme.textColor }}
+              >
+                <span
+                  className="cursor-pointer hover:underline"
+                  onClick={() => router.push("/plans")}
+                >
+                  Plans
+                </span>
+                <span>/</span>
+                <span className="truncate max-w-[150px] sm:max-w-xs">{plan.display_name}</span>
+                <span>/</span>
+                <span className="text-blue-500">{activeTab}</span>
+              </div>
+            </div>
+
+            {/* Secondary Navigation (Tabs) */}
+            <div>
+              <div
+                className="flex items-center gap-1 border-b overflow-x-auto hide-scrollbar"
+                style={{ borderColor: currentTheme.borderColor }}
+              >
+                {[
+                  { id: "details", label: "Plan Details", icon: MdLocalOffer },
+                  { id: "permissions", label: "Permissions Matrix", icon: MdSecurity },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveTab(item.id as any)}
+                    className={`relative px-6 py-3 text-sm font-bold flex items-center gap-2 transition-all whitespace-nowrap ${
+                      activeTab === item.id
+                        ? "opacity-100"
+                        : "opacity-60 hover:opacity-100 hover:bg-black/5"
+                    }`}
+                    style={{
+                      color:
+                        activeTab === item.id
+                          ? currentTheme.primary
+                          : currentTheme.textColor,
+                    }}
+                  >
+                    <item.icon size={18} />
+                    <span>{item.label}</span>
+                    {activeTab === item.id && (
+                      <div
+                        className="absolute bottom-0 left-0 right-0 h-0.5"
+                        style={{ backgroundColor: currentTheme.primary }}
+                      />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* CONTENT AREA */}
+            <div className="animate-in fade-in zoom-in-95 duration-200 min-h-[500px]">
+              {activeTab === "details" && (
+                <div className="space-y-8">
+                  {/* Descriptions */}
+                  <div className="p-4 rounded-xl border bg-black/[0.02]" style={{ borderColor: currentTheme.borderColor }}>
+                    <h3 className="text-base font-bold mb-2 flex items-center gap-2" style={{ color: currentTheme.headingColor }}>
+                      <MdAttachMoney className="text-emerald-500" size={18} /> Plan Description
+                    </h3>
+                    <p className="leading-relaxed opacity-90 text-sm md:text-base" style={{ color: currentTheme.textColor }}>{plan.description || "No description provided."}</p>
+                  </div>
+
+                  {/* Grid for basics */}
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {/* Basic Info */}
+                    <div className="rounded-xl border p-6 hover:shadow-md transition-shadow" style={{ borderColor: currentTheme.borderColor, backgroundColor: currentTheme.cardBg }}>
+                      <h3 className="font-bold flex items-center gap-2 mb-5 text-base" style={{ color: currentTheme.headingColor }}>
+                        <div className="p-1.5 rounded-md bg-blue-500/10 text-blue-500"><MdLocalOffer size={16} /></div>
+                        Basic Information
+                      </h3>
+                      <div className="space-y-1">
+                        <InfoRow label="Internal Name" value={plan.name} />
+                        <InfoRow label="Created On" value={formatDate(plan.created_at)} />
+                        <InfoRow label="Last Updated" value={formatDate(plan.updated_at)} />
+                      </div>
+                    </div>
+                    
+                    {/* Features */}
+                    <div className="rounded-xl border p-6 hover:shadow-md transition-shadow" style={{ borderColor: currentTheme.borderColor, backgroundColor: currentTheme.cardBg }}>
+                      <h3 className="font-bold flex items-center gap-2 mb-5 text-base" style={{ color: currentTheme.headingColor }}>
+                        <div className="p-1.5 rounded-md bg-amber-500/10 text-amber-500"><MdStar size={16} /></div>
+                        Included Features
+                      </h3>
+                      {featureList.length > 0 ? (
+                        <ul className="space-y-3">
+                          {featureList.map((f, i) => (
+                            <li key={i} className="flex items-start gap-3 text-sm font-medium" style={{ color: currentTheme.textColor }}>
+                              <span className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <MdCheck size={12} />
+                              </span>
+                              {f}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span className="text-sm opacity-60 font-medium" style={{ color: currentTheme.textColor }}>No features listed for this plan.</span>
+                      )}
+                    </div>
+
+                    {/* Organization card */}
+                    {plan.organization && (
+                      <div className="rounded-xl border p-6 hover:shadow-md transition-shadow" style={{ borderColor: currentTheme.borderColor, backgroundColor: currentTheme.cardBg }}>
+                        <h3 className="font-bold flex items-center gap-2 mb-5 text-base" style={{ color: currentTheme.headingColor }}>
+                          <div className="p-1.5 rounded-md bg-violet-500/10 text-violet-500"><MdBusiness size={16} /></div>
+                          Organization Scope
+                        </h3>
+                        <div className="space-y-1">
+                          <InfoRow label="Name" value={plan.organization?.name} />
+                          <InfoRow label="Industry" value={plan.organization?.industry || "—"} />
+                          <InfoRow label="Size" value={plan.organization?.size ?? "—"} />
+                          <InfoRow label="Founded / Created" value={formatDate(plan.organization?.created_at)} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Role card */}
+                    <div className="rounded-xl border p-6 hover:shadow-md transition-shadow" style={{ borderColor: currentTheme.borderColor, backgroundColor: currentTheme.cardBg }}>
+                      <h3 className="font-bold flex items-center gap-2 mb-5 text-base" style={{ color: currentTheme.headingColor }}>
+                        <div className="p-1.5 rounded-md bg-emerald-500/10 text-emerald-600"><MdPerson size={16} /></div>
+                        Role Assignment
+                      </h3>
+                      <div className="space-y-1">
+                        <InfoRow label="Role ID" value={plan.role?.Id} />
+                        <InfoRow label="Role Name" value={plan.role?.Name} />
+                        <InfoRow label="Permissions Title" value={plan.role?.role_title} />
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
+              {activeTab === "permissions" && (
+                <div className="space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: currentTheme.headingColor }}>
+                      <MdSecurity className="text-blue-500" />
+                      Role Permissions Matrix
+                    </h3>
+                    <span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-600 border border-blue-100">
+                      Assigned Role: {plan.role?.Name || "None"}
+                    </span>
+                  </div>
+                  
+                  {Object.keys(permissionsMap).length > 0 ? (
+                    <div className="overflow-x-auto rounded-xl border shadow-sm" style={{ borderColor: currentTheme.borderColor }}>
+                      <table className="w-full text-sm border-collapse">
+                        <thead>
+                          <tr className="border-b bg-black/[0.03]" style={{ borderColor: currentTheme.borderColor }}>
+                            <th className="text-left py-4 px-6 text-xs font-bold uppercase tracking-wider opacity-60" style={{ color: currentTheme.textColor }}>
+                              Module
+                            </th>
+                            {ACTION_KEYS.map((a) => (
+                              <th key={a} className="text-center py-4 px-4 text-xs font-bold uppercase tracking-wider opacity-60 capitalize" style={{ color: currentTheme.textColor }}>
+                                {a}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Object.entries(permissionsMap).map(([module, perms], index) => (
+                            <tr key={module} className={`border-b last:border-0 hover:bg-black/5 transition-colors ${index % 2 === 0 ? "bg-transparent" : "bg-black/[0.01]"}`} style={{ borderColor: currentTheme.borderColor }}>
+                              <td className="py-4 px-6">
+                                <span className="text-sm font-bold capitalize" style={{ color: currentTheme.headingColor }}>
+                                  {module.replace(/_/g, " ")}
+                                </span>
+                              </td>
+                              {ACTION_KEYS.map((a) => (
+                                <td key={a} className="py-4 px-4">
+                                  <div className="flex justify-center">
+                                    <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full shadow-sm transition-transform hover:scale-110 ${perms[a] ? "bg-emerald-100 text-emerald-600 border border-emerald-200" : "bg-gray-100 text-gray-400 border border-gray-200"}`}>
+                                      {perms[a] ? <MdCheck size={16} /> : <MdClose size={16} />}
+                                    </span>
+                                  </div>
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-12 text-center rounded-xl border border-dashed flex flex-col items-center justify-center gap-3" style={{ borderColor: currentTheme.borderColor, backgroundColor: currentTheme.cardBg }}>
+                       <div className="w-12 h-12 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center">
+                         <MdSecurity size={24} />
+                       </div>
+                       <span className="opacity-60 font-medium" style={{ color: currentTheme.textColor }}>No permissions matrix found for this role.</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
-}
+}

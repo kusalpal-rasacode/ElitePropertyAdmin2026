@@ -5,6 +5,13 @@ export interface RentalQueryParams {
   search?: string;
   page?: number;
   limit?: number;
+  property_type?: string;
+  min_rent?: number;
+  max_rent?: number;
+  min_bedrooms?: number;
+  min_bathrooms?: number;
+  pets_allowed?: boolean;
+  is_furnished?: boolean;
 }
 
 export interface RentalListResponse {
@@ -67,6 +74,15 @@ const buildUrlWithQuery = (
   if (params.search) query.set("search", params.search);
   if (typeof params.page === "number") query.set("page", String(params.page));
   if (typeof params.limit === "number") query.set("limit", String(params.limit));
+  
+  if (params.property_type && params.property_type !== "All") query.set("property_type", params.property_type);
+  if (params.min_rent !== undefined) query.set("min_rent", String(params.min_rent));
+  if (params.max_rent !== undefined) query.set("max_rent", String(params.max_rent));
+  if (params.min_bedrooms !== undefined) query.set("min_bedrooms", String(params.min_bedrooms));
+  if (params.min_bathrooms !== undefined) query.set("min_bathrooms", String(params.min_bathrooms));
+  if (params.pets_allowed !== undefined) query.set("pets_allowed", String(params.pets_allowed));
+  if (params.is_furnished !== undefined) query.set("is_furnished", String(params.is_furnished));
+  
   const queryString = query.toString();
   return queryString ? `${path}?${queryString}` : path;
 };

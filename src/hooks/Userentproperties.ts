@@ -255,16 +255,30 @@ export function useRentProperties() {
       setLoading(true);
       setError(null);
       try {
+        const fetchParams: any = {
+          page: pagination.page,
+          limit: pagination.limit,
+        };
+
+        if (searchQuery) fetchParams.search = searchQuery;
+        
+        if (activeTab !== "pending") {
+          if (filterPropertyType && filterPropertyType !== "All") fetchParams.property_type = filterPropertyType;
+          if (minPrice) fetchParams.min_rent = Number(minPrice);
+          if (maxPrice) fetchParams.max_rent = Number(maxPrice);
+          if (beds) fetchParams.min_bedrooms = Number(beds);
+          if (baths) fetchParams.min_bathrooms = Number(baths);
+          if (petsAllowed !== "All") fetchParams.pets_allowed = petsAllowed === "Yes";
+          if (furnished !== "All") fetchParams.is_furnished = furnished === "Yes";
+        }
+
         const response = activeTab === "pending"
           ? await getPendingRentals({
-              page: pagination.page,
-              limit: pagination.limit,
+              ...fetchParams,
               status: pendingStatus,
-              ...(searchQuery ? { search: searchQuery } : {}),
             })
           : await getRentals({
-              page: pagination.page,
-              limit: pagination.limit,
+              ...fetchParams,
               ...(filterStatus !== "All" && {
                 status: filterStatus.toLowerCase() as "active" | "inactive",
               }),
@@ -311,9 +325,10 @@ export function useRentProperties() {
     activeTab, pendingStatus, filterStatus, refreshKey,
     permissionReady, canViewRentals,
     pagination.page, pagination.limit, searchQuery,
+    filterPropertyType, minPrice, maxPrice, beds, baths, petsAllowed, furnished,
   ]);
 
-  // ─── Local filter ─────────────────────────────────────────────────────────
+  // ─── Local filter (Fallback for pending tab which lacks API filters) ──────
   useEffect(() => {
     try {
       const filtered = allProperties.filter((property) => {
@@ -325,18 +340,20 @@ export function useRentProperties() {
         const isPending = activeTab === "pending";
 
         return (
-          (isPending || listingType === "Rent" || listingType === "Both") &&
-          (isPending || filterPropertyType === "All" || propType === filterPropertyType) &&
-          (title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            location.toLowerCase().includes(searchQuery.toLowerCase())) &&
-          (isPending || minPrice === "" || effectivePrice >= parseInt(minPrice)) &&
-          (isPending || maxPrice === "" || effectivePrice <= parseInt(maxPrice)) &&
-          (isPending || beds === "" || (property.bedrooms || 0) >= parseInt(beds)) &&
-          (isPending || baths === "" || (property.bathrooms || 0) >= parseInt(baths)) &&
-          (isPending || petsAllowed === "All" ||
-            (petsAllowed === "Yes" ? property.pets_allowed === true : property.pets_allowed === false)) &&
-          (isPending || furnished === "All" ||
-            (furnished === "Yes" ? property.is_furnished === true : property.is_furnished === false))
+          (!isPending) || (
+            (listingType === "Rent" || listingType === "Both") &&
+            (filterPropertyType === "All" || propType === filterPropertyType) &&
+            (title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+              location.toLowerCase().includes(searchQuery.toLowerCase())) &&
+            (minPrice === "" || effectivePrice >= parseInt(minPrice)) &&
+            (maxPrice === "" || effectivePrice <= parseInt(maxPrice)) &&
+            (beds === "" || (property.bedrooms || 0) >= parseInt(beds)) &&
+            (baths === "" || (property.bathrooms || 0) >= parseInt(baths)) &&
+            (petsAllowed === "All" ||
+              (petsAllowed === "Yes" ? property.pets_allowed === true : property.pets_allowed === false)) &&
+            (furnished === "All" ||
+              (furnished === "Yes" ? property.is_furnished === true : property.is_furnished === false))
+          )
         );
       });
       setProperties(filtered);

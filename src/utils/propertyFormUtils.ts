@@ -52,7 +52,7 @@ export interface PropertyFormData {
   // New Rental Fields
   application_fee?: string | number;
   move_in_fees?: string | number;
-  smoking_policy?: "Allowed" | "Not Allowed" | "Outdoors Only";
+  smoking_policy?: "allowed" | "not_allowed" | "designated_areas";
   utilities_included?: string[];
   amenities?: string[];
   images?: (File | string)[];
@@ -189,7 +189,7 @@ export const getInitialFormData = (): PropertyFormData => ({
   images: [],
   application_fee: "",
   move_in_fees: "",
-  smoking_policy: "Not Allowed",
+  smoking_policy: "not_allowed",
   utilities_included: [],
   amenities: [],
 });
@@ -241,7 +241,7 @@ export const propertyToFormData = (property: any): PropertyFormData => ({
   images: [],
   application_fee: property.application_fee?.toString() || "",
   move_in_fees: property.move_in_fees?.toString() || "",
-  smoking_policy: property.smoking_policy || "Not Allowed",
+  smoking_policy: property.smoking_policy || "not_allowed",
   utilities_included: property.utilities_included || [],
   amenities: property.amenities || [],
 });

@@ -88,11 +88,6 @@ export default function RentForm({
     }
   }, [initialData, setValue]);
 
-  ;
-
-  ;
-
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setValue("images", Array.from(e.target.files), { shouldValidate: true });
@@ -577,7 +572,6 @@ export default function RentForm({
               >
                 <TextInput
                   type="date"
-
                   required
                   {...register("available_from")}
                 />
@@ -618,14 +612,14 @@ export default function RentForm({
         </SectionCard>
           
         </div>
-<SectionCard
+          <SectionCard
             stepNumber={4}
             title="Additional Info"
             bgColor="bg-gray-100"
             textColor="text-gray-600"
           >
             <div className="flex flex-col gap-5 flex-1">
-              <div className="flex-1">
+              {/* <div className="flex-1">
                 <InputField label="Property Description">
                   <TextArea
 
@@ -635,7 +629,7 @@ export default function RentForm({
                   />
                 </InputField>
                 <ErrorMessage error={getFieldError("property_description")} />
-              </div>
+              </div> */}
               <div className="flex-1">
                 <InputField label="Seller Notes (Private)">
                   <TextArea

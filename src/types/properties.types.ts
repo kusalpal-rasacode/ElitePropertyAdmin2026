@@ -62,7 +62,7 @@ export interface PropertyData {
     // New Rental Fields
     application_fee?: number;
     move_in_fees?: number;
-    smoking_policy?: "Allowed" | "Not Allowed" | "Outdoors Only";
+    smoking_policy?: "allowed" | "not_allowed" | "designated_areas";
     utilities_included?: string[];
     amenities?: string[];
     images: string[]; // Changed from (File | string)[] to string[] since API returns URLs
@@ -141,7 +141,7 @@ export interface PropertiesPayload {
     // New Rental Fields
     application_fee?: number;
     move_in_fees?: number;
-    smoking_policy?: "Allowed" | "Not Allowed" | "Outdoors Only";
+    smoking_policy?: "allowed" | "not_allowed" | "designated_areas";
     utilities_included?: string[];
     amenities?: string[];
     images?: (File | string)[]; // Keep as is for upload
@@ -229,9 +229,9 @@ export function mapRentalToPropertyData(rental: Record<string, unknown>) {
         images:              rental.images ?? [],
  
         // ── text ──────────────────────────────────────────────────────────────
-        property_description: rental.property_description,
+        // property_description: rental.property_description,
         //  ✅  API sends `notes`, map → `seller_notes`
-        seller_notes:         rental.notes ?? rental.seller_notes,
+        seller_notes:         rental.notes,
  
         // ── admin ─────────────────────────────────────────────────────────────
         rejection_reason:    rental.rejection_reason,

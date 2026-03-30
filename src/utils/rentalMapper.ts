@@ -235,10 +235,10 @@ export const mapRentalToPropertyData = (rental: Record<string, unknown>): Proper
     move_in_fees: safeNumber(rental?.move_in_fees, 0),
     smoking_policy:
       safeString(rental?.smoking_policy).toLowerCase() === "allowed"
-        ? "Allowed"
+        ? "allowed"
         : safeString(rental?.smoking_policy).toLowerCase() === "designated_areas"
-          ? "Outdoors Only"
-          : "Not Allowed",
+          ? "designated_areas"
+          : "not_allowed",
     utilities_included: arrayFromUnknown(rental?.utilities_included).map((v) =>
       toTitleCase(v.replaceAll("_", " ")),
     ),
@@ -272,7 +272,7 @@ const mapRentFrequency = (value: string) => {
 const mapSmokingPolicy = (value: string) => {
   const normalized = value.trim().toLowerCase();
   if (normalized === "allowed") return "allowed";
-  if (normalized === "outdoors only") return "designated_areas";
+  if (normalized === "designated_areas" || normalized === "outdoors only") return "designated_areas";
   return "not_allowed";
 };
 
@@ -362,17 +362,21 @@ export const mapPropertyFormToRentalPayload = (source: FormData, isUpdate: boole
       }
       output.append(mappedKey, String(value));
       if (mappedKey === "available_from") {
-        availableFrom = String(value);
+        availableFrom = String(value).trim();
       }
     }
   });
 
-  if (availableFrom) {
-    output.append("start_date", availableFrom);
-  } else {
-    // If start_date is completely missing, append an empty string so the field exists
-    // but honestly it should come from the form's available_from.
-    output.append("start_date", new Date().toISOString().split("T")[0]);
+  const today = new Date().toISOString().split("T")[0];
+  const nextYear = new Date(Date.now() + 365*24*60*60*1000).toISOString().split("T")[0];
+
+  const finalAvailableFrom = availableFrom || today;
+
+  output.set("available_from", finalAvailableFrom);
+  output.set("start_date", finalAvailableFrom);
+
+  if (!output.has("end_date") || !output.get("end_date") || String(output.get("end_date")).trim() === "") {
+    output.set("end_date", nextYear);
   }
 
   return output;

@@ -40,7 +40,11 @@ function EditPropertyContent() {
   });
 
   const { mutate: updateProperty, isPending } = useMutation({
-    mutationFn: (formData: FormData) => putPropertyByIdService(id, formData), // Kept putPropertyByIdService
+    mutationFn: (formData: FormData) => {
+      
+
+      return putPropertyByIdService(id, formData);
+    },
     onSuccess: (response) => {
       showSuccessToast(response?.message || "Property updated successfully.");
       queryClient.invalidateQueries({ queryKey: ["properties", id] }); // Invalidate specific property
